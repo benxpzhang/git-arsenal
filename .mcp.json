@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "git-arsenal": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["packages/mcp-server/index.js"],
+      "env": {
+        "ARSENAL_API_URL": "http://localhost:8003"
+      }
+    }
+  }
+}
