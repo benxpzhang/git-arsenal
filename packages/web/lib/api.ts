@@ -2,6 +2,8 @@
  * API client for Git Arsenal backend.
  */
 
+import { ensureAuth, clearAuth } from "./auth";
+
 const BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
 async function handleRes(res: Response) {
@@ -15,6 +17,23 @@ async function handleRes(res: Response) {
 function authHeaders(): Record<string, string> {
   const token = typeof window !== "undefined" ? localStorage.getItem("arsenal_token") : null;
   return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+async function fetchWithAutoAuth(input: RequestInfo, init?: RequestInit): Promise<Response> {
+  await ensureAuth();
+  const res = await fetch(input, {
+    ...init,
+    headers: { ...init?.headers, ...authHeaders() },
+  });
+  if (res.status === 401) {
+    clearAuth();
+    await ensureAuth();
+    return fetch(input, {
+      ...init,
+      headers: { ...init?.headers, ...authHeaders() },
+    });
+  }
+  return res;
 }
 
 /* ── Auth ── */
@@ -50,9 +69,9 @@ export interface SearchResponse {
 }
 
 export async function searchRepos(query: string, topK = 15): Promise<SearchResponse> {
-  const res = await fetch(`${BASE}/api/search`, {
+  const res = await fetchWithAutoAuth(`${BASE}/api/search`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ query, top_k: topK }),
   });
   return handleRes(res);
@@ -131,28 +150,28 @@ export async function getGalaxyDetail(id: number) {
 
 /* ── Conversations ── */
 export async function createConversation(title?: string) {
-  const res = await fetch(`${BASE}/api/conversations`, {
+  const res = await fetchWithAutoAuth(`${BASE}/api/conversations`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ title }),
   });
   return handleRes(res);
 }
 
 export async function listConversations() {
-  const res = await fetch(`${BASE}/api/conversations`, { headers: authHeaders() });
+  const res = await fetchWithAutoAuth(`${BASE}/api/conversations`, {});
   return handleRes(res);
 }
 
 export async function getConversation(id: string) {
-  const res = await fetch(`${BASE}/api/conversations/${id}`, { headers: authHeaders() });
+  const res = await fetchWithAutoAuth(`${BASE}/api/conversations/${id}`, {});
   return handleRes(res);
 }
 
 export async function addMessage(convId: string, role: string, content: string) {
-  const res = await fetch(`${BASE}/api/conversations/${convId}/messages`, {
+  const res = await fetchWithAutoAuth(`${BASE}/api/conversations/${convId}/messages`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ role, content }),
   });
   return handleRes(res);

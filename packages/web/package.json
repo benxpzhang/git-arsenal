@@ -9,8 +9,14 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "3d-force-graph": "^1.77.4",
+    "@ai-sdk/mcp": "^1.0.25",
+    "@ai-sdk/openai-compatible": "^2.0.35",
+    "@ai-sdk/react": "^3.0.118",
+    "@tailwindcss/postcss": "^4.2.1",
+    "ai": "^6.0.116",
     "clsx": "^2.1.1",
+    "force-graph": "^1.51.1",
+    "framer-motion": "^12.36.0",
     "lucide-react": "^0.477.0",
     "next": "^15.5.12",
     "react": "^19.0.0",
@@ -19,6 +25,7 @@
     "remark-gfm": "^4.0.1",
     "tailwind-merge": "^3.0.2",
     "tw-animate-css": "^1.2.9",
+    "zod": "^4.3.6",
     "zustand": "^5.0.3"
   },
   "devDependencies": {

@@ -8,17 +8,19 @@ import { cn } from "@/lib/utils";
 export function RepoListPanel() {
   const { searchResults, galaxySubgraph, setGalaxyFocusedNodeId, setRightTab } = useStore();
   const clusterRepos =
-    galaxySubgraph?.nodes.map((n) => ({
-      id: n.id,
-      score: 1,
-      full_name: n.name,
-      stars: n.stars || 0,
-      language: n.rawLang || "",
-      description: "",
-      html_url: n.url || "",
-      tree_text: "",
-      source: "cluster" as const,
-    })) ?? [];
+    galaxySubgraph?.nodes
+      .map((n) => ({
+        id: n.id,
+        score: 1,
+        full_name: n.name,
+        stars: n.stars || 0,
+        language: n.rawLang || "",
+        description: "",
+        html_url: n.url || "",
+        tree_text: "",
+        source: "cluster" as const,
+      }))
+      .sort((a, b) => b.stars - a.stars) ?? [];
 
   const repos =
     clusterRepos.length > 0

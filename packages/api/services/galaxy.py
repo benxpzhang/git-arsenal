@@ -368,29 +368,37 @@ def search_by_name(query: str, limit: int = 12) -> list[dict]:
     if not query_lower:
         return []
 
-    results = []
+    candidates = []
     for idx, repo in enumerate(REPOS):
         name = repo.get("full_name", "").lower()
         if query_lower in name:
-            node = _make_node(idx)
-            # Add edgeCount
-            edge_count = 0
-            if EDGE_SRC is not None:
-                edge_count = int(np.sum(EDGE_SRC == idx) + np.sum(EDGE_DST == idx))
-            node["edgeCount"] = edge_count
-            results.append(node)
-            if len(results) >= limit:
-                break
+            candidates.append(idx)
 
-    # Sort by relevance: exact match first, then by stars
-    results.sort(key=lambda n: (
-        0 if n["name"].lower() == query_lower else (
-            1 if n["name"].lower().startswith(query_lower) else 2
-        ),
-        -n["stars"],
-    ))
+    # Sort by relevance: exact match first, then prefix, then by stars
+    def _sort_key(idx: int):
+        name = REPOS[idx].get("full_name", "").lower()
+        if name == query_lower:
+            tier = 0
+        elif name.startswith(query_lower) or name.split("/")[-1] == query_lower:
+            tier = 1
+        elif name.split("/")[-1].startswith(query_lower):
+            tier = 2
+        else:
+            tier = 3
+        return (tier, -REPOS[idx].get("stars", 0))
 
-    return results[:limit]
+    candidates.sort(key=_sort_key)
+
+    results = []
+    for idx in candidates[:limit]:
+        node = _make_node(idx)
+        edge_count = 0
+        if EDGE_SRC is not None:
+            edge_count = int(np.sum(EDGE_SRC == idx) + np.sum(EDGE_DST == idx))
+        node["edgeCount"] = edge_count
+        results.append(node)
+
+    return results
 
 
 def get_neighbors(idx: int, limit: int = 15) -> dict:

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { Plus, MessageSquare, Trash2, PanelLeftClose, PanelLeft, PanelRight, Home } from "lucide-react";
+import { Plus, MessageSquare, Trash2, PanelLeftClose, PanelLeft, PanelRight, Hexagon } from "lucide-react";
 import { useStore, type ConversationItem } from "@/lib/store";
 import { listConversations, deleteConversation } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -116,10 +116,14 @@ export function Sidebar() {
       <div className="px-4 py-4 flex items-center justify-between border-b border-border/40">
         <button
           onClick={handleHome}
-          className="flex items-center gap-2 text-[15px] font-semibold hover:opacity-80 transition-opacity"
+          className="flex items-center gap-2.5 text-[16px] hover:opacity-80 transition-opacity group"
         >
-          <Home className="w-4 h-4" />
-          Git Arsenal
+          <div className="bg-primary/20 p-1.5 rounded-lg group-hover:bg-primary/30 transition-colors">
+            <Hexagon className="w-4 h-4 text-primary fill-primary/40" />
+          </div>
+          <span className="font-bold tracking-tight">
+            Git<span className="font-medium text-muted-foreground">Arsenal</span>
+          </span>
         </button>
         <button
           onClick={() => setSidebarOpen(false)}

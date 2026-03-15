@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
-import { getGalaxyCluster, getGalaxySubgraph, getGalaxyNeighbors, searchGalaxy, type GalaxySubgraph, type GalaxyNode } from "@/lib/api";
-import { Globe, RefreshCw, Search, Loader2, Star, Eye, EyeOff } from "lucide-react";
+import { getGalaxyCluster, getGalaxySubgraph, getGalaxyNeighbors, searchGalaxy, type GalaxySubgraph } from "@/lib/api";
+import { Globe, RefreshCw, Search, Loader2, Star, Eye, EyeOff, X } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
@@ -16,15 +16,12 @@ const LANG_COLORS: Record<string, string> = {
   Vue: "#41b883", HTML: "#e34c26", CSS: "#563d7c", Jupyter: "#DA5B0B",
 };
 
+const EXTERNAL_LABEL = "⚡ External";
+
 function getLangColor(lang: string): string {
   return LANG_COLORS[lang] || "#6b7280";
 }
 
-/**
- * GitVizz-style edge color: cyan → gold gradient based on similarity.
- * Low sim (~0.1) = rgb(80, 220, 255) cyan
- * High sim (~0.5+) = rgb(255, 200, 55) warm gold
- */
 function simToColor(sim: number, alpha?: number): string {
   const t = Math.min(1, Math.max(0, (sim - 0.1) / 0.4));
   const r = Math.round(80 + 175 * t);
@@ -48,17 +45,17 @@ interface SearchHit {
   name: string;
   stars: number;
   rawLang: string;
-  leafId: number;
-  color?: string;
 }
 
 export function GalaxyPanel() {
+  const { galaxySubgraph, setGalaxySubgraph, galaxyFocusedNodeId, setGalaxyFocusedNodeId } = useStore();
+
   const containerRef = useRef<HTMLDivElement>(null);
   const graphRef = useRef<any>(null);
-  const [data, setData] = useState<GalaxySubgraph | null>(null);
+  const [data, setData] = useState<GalaxySubgraph | null>(galaxySubgraph);
   const [loading, setLoading] = useState(false);
+  const [containerReady, setContainerReady] = useState(false);
 
-  // Search state
   const [query, setQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchHit[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -69,32 +66,47 @@ export function GalaxyPanel() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isComposingRef = useRef(false);
 
-  // Visual state — refs for graph callbacks, state for React UI
   const [hiddenLangs, setHiddenLangs] = useState<Set<string>>(new Set());
   const [showLegend, setShowLegend] = useState(true);
+  const [externalCount, setExternalCount] = useState(0);
   const focusedIdRef = useRef<number | null>(null);
   const hiddenLangsRef = useRef<Set<string>>(new Set());
   const hoverIdRef = useRef<number | null>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
 
-  const { setGalaxySubgraph, galaxyFocusedNodeId, setGalaxyFocusedNodeId } = useStore();
-
-  // Sync refs with store state
-  useEffect(() => { focusedIdRef.current = galaxyFocusedNodeId; }, [galaxyFocusedNodeId]);
   useEffect(() => { hiddenLangsRef.current = hiddenLangs; }, [hiddenLangs]);
 
-  // When focused node is set externally (from chat/repo list), fly to it
   useEffect(() => {
-    if (galaxyFocusedNodeId === null || !data) return;
-    const target = data.nodes.find((n) => n.id === galaxyFocusedNodeId);
+    focusedIdRef.current = galaxyFocusedNodeId;
+    if (galaxyFocusedNodeId === null) return;
+
+    // If node is already in current graph, just fly to it
+    const gd = graphRef.current?.graphData();
+    const target = gd?.nodes?.find((n: any) => n.id === galaxyFocusedNodeId);
     if (target) {
-      focusedIdRef.current = galaxyFocusedNodeId;
       refreshNodeVisuals();
       flyToNode(target);
+      return;
     }
+
+    // Node not in current view — load its cluster
+    (async () => {
+      try {
+        const seeded = await getGalaxySubgraph({ id: galaxyFocusedNodeId, max_nodes: 500 });
+        const clusterId = seeded.leafId;
+        const clusterData: GalaxySubgraph =
+          typeof clusterId === "number"
+            ? await getGalaxyCluster(clusterId, galaxyFocusedNodeId, 500)
+            : seeded;
+        setData(clusterData);
+        setGalaxySubgraph(clusterData);
+      } catch {
+        // silently fail
+      }
+    })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [galaxyFocusedNodeId]);
 
-  // ── Language stats from current data ──
   const langStats = useMemo(() => {
     if (!data) return [];
     const counts = new Map<string, number>();
@@ -107,13 +119,11 @@ export function GalaxyPanel() {
       .map(([lang, count]) => ({ lang, count, color: getLangColor(lang) }));
   }, [data]);
 
-  // ── Refresh graph visuals without restarting simulation ──
   const refreshNodeVisuals = useCallback(() => {
     if (!graphRef.current) return;
     graphRef.current
       .nodeColor((n: any) => {
         if (n.id === focusedIdRef.current) return "#ffffff";
-        if (hiddenLangsRef.current.has(n.rawLang || "Other")) return n.color || "#6b7280";
         return n.color || "#6b7280";
       })
       .nodeVal((n: any) => {
@@ -122,6 +132,7 @@ export function GalaxyPanel() {
         return base;
       })
       .nodeVisibility((n: any) => {
+        if (n._isExternal && hiddenLangsRef.current.has(EXTERNAL_LABEL)) return false;
         const lang = n.rawLang || "Other";
         return !hiddenLangsRef.current.has(lang);
       });
@@ -135,20 +146,19 @@ export function GalaxyPanel() {
         const sim = l.sim || 0;
         if (hovering) {
           if (isAdjacentToHover(l, hoverIdRef.current)) {
-            return simToColor(sim, 0.4 + 0.5 * Math.min(1, (sim - 0.1) / 0.4));
+            return simToColor(sim, 0.5 + 0.4 * Math.min(1, (sim - 0.1) / 0.4));
           }
           return "rgba(0,0,0,0)";
         }
-        // Default: all links visible, alpha scales with sim
         const t = Math.min(1, Math.max(0, (sim - 0.1) / 0.4));
-        return simToColor(sim, 0.03 + 0.08 * t);
+        return simToColor(sim, 0.04 + 0.08 * t);
       })
       .linkWidth((l: any) => {
         if (hovering && isAdjacentToHover(l, hoverIdRef.current)) {
           const t = Math.min(1, ((l.sim || 0) - 0.1) / 0.4);
-          return 1.5 + 2 * t;
+          return 1.0 + 1.5 * t;
         }
-        return 0.4;
+        return 0.3;
       })
       .linkDirectionalParticles((l: any) => {
         if (hovering) {
@@ -160,16 +170,16 @@ export function GalaxyPanel() {
       .linkDirectionalParticleWidth((l: any) => {
         const sim = l.sim || 0;
         if (hovering && isAdjacentToHover(l, hoverIdRef.current)) {
-          return 1.2 + sim * 2.5;
+          return 1.5 + sim * 3;
         }
-        return 0.4 + sim * 1.2;
+        return 0.5 + sim * 1.5;
       })
       .linkDirectionalParticleSpeed((l: any) => {
         const sim = l.sim || 0;
         if (hovering && isAdjacentToHover(l, hoverIdRef.current)) {
-          return 0.005 + sim * 0.01;
+          return 0.004 + sim * 0.008;
         }
-        return 0.002 + sim * 0.004;
+        return 0.001 + sim * 0.003;
       })
       .linkDirectionalParticleColor((l: any) => {
         const sim = l.sim || 0;
@@ -181,36 +191,28 @@ export function GalaxyPanel() {
       .linkVisibility((l: any) => {
         const src = typeof l.source === "object" ? l.source : null;
         const tgt = typeof l.target === "object" ? l.target : null;
+        if (src && src._isExternal && hiddenLangsRef.current.has(EXTERNAL_LABEL)) return false;
+        if (tgt && tgt._isExternal && hiddenLangsRef.current.has(EXTERNAL_LABEL)) return false;
         if (src && hiddenLangsRef.current.has(src.rawLang || "Other")) return false;
         if (tgt && hiddenLangsRef.current.has(tgt.rawLang || "Other")) return false;
         return true;
       });
   }, []);
 
-  const flyToNode = useCallback((target: GalaxyNode, duration = 800) => {
-    if (!graphRef.current || target.x === undefined || target.y === undefined || target.z === undefined) return;
-    const distance = 160;
-    const hyp = Math.hypot(target.x, target.y, target.z) || 1;
-    const distRatio = 1 + distance / hyp;
-    graphRef.current.cameraPosition(
-      {
-        x: target.x * distRatio,
-        y: target.y * distRatio,
-        z: target.z * distRatio,
-      },
-      { x: target.x, y: target.y, z: target.z },
-      duration,
-    );
+  const flyToNode = useCallback((target: any, duration = 600) => {
+    if (!graphRef.current || target.x === undefined || target.y === undefined) return;
+    graphRef.current.centerAt(target.x, target.y, duration);
+    graphRef.current.zoom(4, duration);
   }, []);
 
-  // ── Navigate to repo: load cluster, fly, highlight white ──
   const navigateToRepo = useCallback(async (hit: SearchHit) => {
     setShowDropdown(false);
     setQuery(hit.name);
     setIsNavigating(true);
 
     try {
-      const localMatch = data?.nodes.find((n) => n.id === hit.id);
+      const gd = graphRef.current?.graphData();
+      const localMatch = gd?.nodes?.find((n: any) => n.id === hit.id);
       if (localMatch) {
         setGalaxyFocusedNodeId(hit.id);
         focusedIdRef.current = hit.id;
@@ -235,9 +237,8 @@ export function GalaxyPanel() {
     } finally {
       setIsNavigating(false);
     }
-  }, [data, flyToNode, setGalaxySubgraph, refreshNodeVisuals]);
+  }, [flyToNode, setGalaxySubgraph, refreshNodeVisuals, setGalaxyFocusedNodeId]);
 
-  // ── Debounced search ──
   const doSearch = useCallback(async (q: string) => {
     if (q.length < 2) {
       setSearchResults([]);
@@ -250,15 +251,11 @@ export function GalaxyPanel() {
       const localHits: SearchHit[] = (data?.nodes ?? [])
         .filter((n) => n.name.toLowerCase().includes(q.toLowerCase()))
         .slice(0, 4)
-        .map((n) => ({
-          id: n.id, name: n.name, stars: n.stars,
-          rawLang: n.rawLang, leafId: n.leafId, color: n.color,
-        }));
+        .map((n) => ({ id: n.id, name: n.name, stars: n.stars, rawLang: n.rawLang }));
 
       const remoteRes = await searchGalaxy(q, 10);
       const remoteHits: SearchHit[] = (remoteRes?.results ?? []).map((r: any) => ({
-        id: r.id, name: r.name, stars: r.stars,
-        rawLang: r.rawLang, leafId: r.leafId, color: r.color,
+        id: r.id, name: r.name, stars: r.stars, rawLang: r.rawLang,
       }));
 
       const seenIds = new Set(localHits.map((h) => h.id));
@@ -327,7 +324,6 @@ export function GalaxyPanel() {
     }
   }
 
-  // Click-outside to close dropdown
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (searchBoxRef.current && !searchBoxRef.current.contains(e.target as Node)) {
@@ -338,7 +334,6 @@ export function GalaxyPanel() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // ── Language filter toggle ──
   function toggleLang(lang: string) {
     setHiddenLangs((prev) => {
       const next = new Set(prev);
@@ -367,7 +362,6 @@ export function GalaxyPanel() {
     refreshLinkVisuals();
   }
 
-  // ── Load random cluster ──
   async function loadRandom() {
     setLoading(true);
     try {
@@ -379,7 +373,6 @@ export function GalaxyPanel() {
           : seed;
       setData(d);
       setGalaxySubgraph(d);
-      // Highlight the focus node in white
       const focusId = d.focus ?? seed.focus;
       if (typeof focusId === "number") {
         setGalaxyFocusedNodeId(focusId);
@@ -392,25 +385,31 @@ export function GalaxyPanel() {
   }
 
   useEffect(() => {
-    loadRandom();
+    if (!data) loadRandom();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Reset hidden langs when data changes
   useEffect(() => {
     setHiddenLangs(new Set());
     hiddenLangsRef.current = new Set();
+    if (data && data.leafId !== undefined) {
+      const extCnt = data.nodes.filter((n) => n.leafId !== data.leafId).length;
+      setExternalCount(extCnt);
+    } else {
+      setExternalCount(0);
+    }
   }, [data]);
 
-  // ── 3D graph rendering ──
+  // ── 2D graph rendering ──
   useEffect(() => {
-    if (!data || !containerRef.current) return;
+    if (!data || !containerRef.current || !containerReady) return;
+    if (containerRef.current.clientWidth === 0 || containerRef.current.clientHeight === 0) return;
 
     let destroyed = false;
 
     (async () => {
-      const ForceGraph3DModule = await import("3d-force-graph");
-      const ForceGraph3D = ForceGraph3DModule.default;
+      const ForceGraphModule = await import("force-graph");
+      const ForceGraph = ForceGraphModule.default;
 
       if (destroyed || !containerRef.current) return;
 
@@ -418,11 +417,11 @@ export function GalaxyPanel() {
         graphRef.current._destructor?.();
       }
 
-      const graph = (ForceGraph3D as any)()(containerRef.current)
+      const graph = (ForceGraph as any)()(containerRef.current)
         .width(containerRef.current.clientWidth)
         .height(containerRef.current.clientHeight)
         .backgroundColor("rgba(0,0,0,0)")
-        .nodeLabel((n: any) => `${n.name} ⭐${n.stars}`)
+        .autoPauseRedraw(false)
         .nodeColor((n: any) => {
           if (n.id === focusedIdRef.current) return "#ffffff";
           return n.color || "#6b7280";
@@ -433,26 +432,95 @@ export function GalaxyPanel() {
           return base;
         })
         .nodeVisibility((n: any) => {
+          if (n._isExternal && hiddenLangsRef.current.has(EXTERNAL_LABEL)) return false;
           const lang = n.rawLang || "Other";
           return !hiddenLangsRef.current.has(lang);
         })
-        .nodeOpacity(0.9)
+        .nodeCanvasObjectMode(() => "replace")
+        .nodeCanvasObject((n: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
+          const isFocused = n.id === focusedIdRef.current;
+          const isHovered = n.id === hoverIdRef.current;
+          const isExternal = !!n._isExternal;
+          
+          const baseR = Math.sqrt(n.val || 1) * 3;
+          const r = isFocused ? baseR * 2 : baseR;
+
+          if (isExternal && !isFocused) {
+            const d = r * 1.3;
+            ctx.beginPath();
+            ctx.moveTo(n.x, n.y - d);
+            ctx.lineTo(n.x + d, n.y);
+            ctx.lineTo(n.x, n.y + d);
+            ctx.lineTo(n.x - d, n.y);
+            ctx.closePath();
+            ctx.fillStyle = n.color || "#6b7280";
+            ctx.fill();
+          } else {
+            ctx.beginPath();
+            ctx.arc(n.x, n.y, r, 0, 2 * Math.PI);
+            ctx.fillStyle = isFocused ? "#ffffff" : (n.color || "#6b7280");
+            ctx.fill();
+          }
+
+          if (isFocused || isHovered) {
+            ctx.strokeStyle = isFocused ? "rgba(255,255,255,0.5)" : "#ffffff";
+            ctx.lineWidth = 2 / globalScale;
+            ctx.beginPath();
+            ctx.arc(n.x, n.y, r, 0, 2 * Math.PI);
+            ctx.stroke();
+          }
+
+          if (globalScale > 2 || isFocused) {
+            const label = n.name;
+            const fontSize = Math.max(10 / globalScale, 2);
+            ctx.font = `${isFocused ? "bold " : ""}${fontSize}px 'Inter', system-ui, sans-serif`;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "top";
+
+            const yOff = r + 4 / globalScale;
+
+            ctx.fillStyle = isFocused ? "#ffffff" : "rgba(255,255,255,0.4)";
+            ctx.fillText(label, n.x, n.y + yOff);
+          }
+        })
+        .nodeLabel((n: any) => {
+          if (hoverIdRef.current !== n.id) return "";
+          const extBadge = n._isExternal
+            ? `<span style="display:inline-block;background:#f59e0b22;color:#f59e0b;font-size:9px;padding:1px 5px;border-radius:4px;border:1px solid #f59e0b44;margin-left:4px;">External</span>`
+            : "";
+          return `
+            <div class="bg-card/90 backdrop-blur-md border border-border/50 rounded-xl p-3 shadow-xl max-w-[280px] pointer-events-none">
+              <div class="flex items-start justify-between gap-3 mb-1">
+                <div class="font-semibold text-foreground text-sm break-all leading-tight">${n.name}${extBadge}</div>
+              </div>
+              <div class="flex items-center gap-3 text-xs text-muted-foreground mt-2">
+                <div class="flex items-center gap-1.5">
+                  <span class="w-2 h-2 rounded-full" style="background-color: ${n.color || '#888'}"></span>
+                  ${n.rawLang || 'Unknown'}
+                </div>
+                <div class="flex items-center gap-1">
+                  <svg class="w-3.5 h-3.5 text-yellow-500 fill-yellow-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                  ${n.stars?.toLocaleString() || 0}
+                </div>
+              </div>
+            </div>
+          `;
+        })
         .linkColor((l: any) => {
           const sim = l.sim || 0;
-          // Initial load: no hover, show all links with sim-scaled alpha
           const t = Math.min(1, Math.max(0, (sim - 0.1) / 0.4));
-          return simToColor(sim, 0.03 + 0.08 * t);
+          return simToColor(sim, 0.04 + 0.08 * t);
         })
-        .linkWidth(0.4)
+        .linkWidth(0.3)
         .linkDirectionalParticles((l: any) => {
           const sim = l.sim || 0;
           return sim > 0.25 ? 2 : 1;
         })
         .linkDirectionalParticleWidth((l: any) => {
-          return 0.4 + (l.sim || 0) * 1.2;
+          return 0.5 + (l.sim || 0) * 1.5;
         })
         .linkDirectionalParticleSpeed((l: any) => {
-          return 0.002 + (l.sim || 0) * 0.004;
+          return 0.001 + (l.sim || 0) * 0.003;
         })
         .linkDirectionalParticleColor((l: any) => {
           return simToColor(l.sim || 0);
@@ -460,13 +528,14 @@ export function GalaxyPanel() {
         .linkVisibility((l: any) => {
           const src = typeof l.source === "object" ? l.source : null;
           const tgt = typeof l.target === "object" ? l.target : null;
+          if (src && src._isExternal && hiddenLangsRef.current.has(EXTERNAL_LABEL)) return false;
+          if (tgt && tgt._isExternal && hiddenLangsRef.current.has(EXTERNAL_LABEL)) return false;
           if (src && hiddenLangsRef.current.has(src.rawLang || "Other")) return false;
           if (tgt && hiddenLangsRef.current.has(tgt.rawLang || "Other")) return false;
           return true;
         })
-        .linkOpacity(0.7)
-        .enableNodeDrag(false)
-        .cooldownTicks(120)
+        .enableNodeDrag(true)
+        .cooldownTicks(150)
         .onNodeHover((node: any) => {
           hoverIdRef.current = node?.id ?? null;
           if (containerRef.current) {
@@ -478,18 +547,39 @@ export function GalaxyPanel() {
         })
         .onNodeClick((node: any) => {
           if (!node) return;
+
+          // Unpin previously focused node
+          if (focusedIdRef.current !== null && focusedIdRef.current !== node.id) {
+            const gd = graphRef.current?.graphData();
+            const prev = gd?.nodes?.find((n: any) => n.id === focusedIdRef.current);
+            if (prev) { prev.fx = undefined; prev.fy = undefined; }
+          }
+
           setGalaxyFocusedNodeId(node.id);
           focusedIdRef.current = node.id;
+
+          // Pin the clicked node so force simulation won't push it away
+          node.fx = node.x;
+          node.fy = node.y;
+
           refreshNodeVisuals();
           flyToNode(node);
 
-          // Fetch and merge global neighbors for the clicked node
           getGalaxyNeighbors(node.id, 15).then((result) => {
             if (!graphRef.current || !result?.nodes?.length) return;
             const currentData = graphRef.current.graphData();
             const existingIds = new Set(currentData.nodes.map((n: any) => n.id));
 
-            const newNodes = result.nodes.filter((n: any) => !existingIds.has(n.id));
+            const newNodes = result.nodes
+              .filter((n: any) => !existingIds.has(n.id))
+              .map((n: any) => {
+                const ox = n.x ?? 0;
+                const oy = n.y ?? 0;
+                const oz = n.z ?? 0;
+                const px = (ox + oz * 0.5) * 8;
+                const py = (oy + oz * 0.5) * 8;
+                return { ...n, x: px, y: py, _isExternal: true };
+              });
             const newLinks = result.links.filter(
               (l: any) => !currentData.links.some(
                 (el: any) => {
@@ -506,52 +596,133 @@ export function GalaxyPanel() {
               nodes: [...currentData.nodes, ...newNodes],
               links: [...currentData.links, ...newLinks],
             });
+            graphRef.current.d3ReheatSimulation();
 
-            // Re-apply visuals after data merge
+            if (newNodes.length > 0) {
+              setExternalCount((prev) => prev + newNodes.length);
+            }
+
             setTimeout(() => {
               refreshNodeVisuals();
               refreshLinkVisuals();
-            }, 100);
+              // Re-center on pinned node after simulation settles
+              const gd = graphRef.current?.graphData();
+              const target = gd?.nodes?.find((nd: any) => nd.id === focusedIdRef.current);
+              if (target) flyToNode(target, 400);
+            }, 300);
           }).catch(() => {});
         })
+        .onRenderFramePre((ctx: CanvasRenderingContext2D, globalScale: number) => {
+          if (globalScale < 0.3) return;
+          const { width: w, height: h } = ctx.canvas;
+          const spacing = 24;
+          const dotR = 0.8;
+          ctx.fillStyle = "rgba(255,255,255,0.04)";
+          const transform = (graphRef.current as any)?._zoom?.();
+          if (transform) {
+            const sx = transform.x;
+            const sy = transform.y;
+            const sk = transform.k;
+            const startX = Math.floor(-sx / sk / spacing) * spacing;
+            const startY = Math.floor(-sy / sk / spacing) * spacing;
+            const endX = startX + w / sk + spacing * 2;
+            const endY = startY + h / sk + spacing * 2;
+            const maxDots = 120;
+            const cols = Math.ceil((endX - startX) / spacing);
+            const rows = Math.ceil((endY - startY) / spacing);
+            if (cols * rows > maxDots * maxDots) return;
+            for (let x = startX; x < endX; x += spacing) {
+              for (let y = startY; y < endY; y += spacing) {
+                ctx.beginPath();
+                ctx.arc(x, y, dotR / sk, 0, 2 * Math.PI);
+                ctx.fill();
+              }
+            }
+          }
+        })
+        .onRenderFramePost(() => {
+          if (focusedIdRef.current === null || !popoverRef.current || !graphRef.current || !containerRef.current) return;
+          const gd = graphRef.current.graphData();
+          const target = gd?.nodes?.find((n: any) => n.id === focusedIdRef.current);
+          if (target && target.x !== undefined && target.y !== undefined) {
+            const coords = graphRef.current.graph2ScreenCoords(target.x, target.y);
+            const rect = containerRef.current.getBoundingClientRect();
+            const screenX = coords.x + rect.left;
+            const screenY = coords.y + rect.top;
+
+            const popW = popoverRef.current.offsetWidth;
+            const popH = popoverRef.current.offsetHeight;
+            const vw = window.innerWidth;
+            const vh = window.innerHeight;
+            let px = screenX + 20;
+            let py = screenY - 20;
+            if (px + popW > vw - 8) px = screenX - popW - 20;
+            if (py + popH > vh - 8) py = vh - popH - 8;
+            if (py < 8) py = 8;
+
+            popoverRef.current.style.left = `${px}px`;
+            popoverRef.current.style.top = `${py}px`;
+          }
+        })
         .graphData({
-          nodes: data.nodes.map((n) => ({ ...n })),
+          nodes: data.nodes.map((n) => {
+            const ox = n.x ?? 0;
+            const oy = n.y ?? 0;
+            const oz = n.z ?? 0;
+            const px = (ox + oz * 0.5) * 8;
+            const py = (oy + oz * 0.5) * 8;
+            const isExt = data.leafId != null && n.leafId !== data.leafId;
+            return { ...n, x: px, y: py, _isExternal: isExt };
+          }),
           links: data.links.map((l) => ({ ...l })),
         });
 
       graphRef.current = graph;
 
-      // Fly to focused node after physics stabilises; skip zoomToFit to avoid
-      // the "zoom-in then zoom-out" flash and excessive whitespace.
+      // Configure d3 forces after graph is created
+      graph.d3Force('center', null);
+      const chargeForce = graph.d3Force('charge');
+      if (chargeForce) chargeForce.strength(-150).distanceMax(400);
+      const linkForce = graph.d3Force('link');
+      if (linkForce) linkForce.distance(50).strength(0.3);
+
       setTimeout(() => {
         const focusId = focusedIdRef.current;
         if (focusId !== null) {
-          const target = data.nodes.find((n) => n.id === focusId);
+          const gd = graphRef.current?.graphData();
+          const target = gd?.nodes?.find((nd: any) => nd.id === focusId);
           if (target && target.x !== undefined) {
             flyToNode(target);
             return;
           }
         }
-      }, 600);
+        if (graphRef.current?.zoomToFit) {
+          graphRef.current.zoomToFit(600, 60);
+        }
+      }, 500);
     })();
 
     return () => {
       destroyed = true;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data]);
+  }, [data, containerReady]);
 
-  // ── Resize handler ──
   useEffect(() => {
-    function onResize() {
-      if (graphRef.current && containerRef.current) {
-        graphRef.current
-          .width(containerRef.current.clientWidth)
-          .height(containerRef.current.clientHeight);
+    if (!containerRef.current) return;
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        if (width > 0 && height > 0) {
+          setContainerReady(true);
+          if (graphRef.current) {
+            graphRef.current.width(width).height(height);
+          }
+        }
       }
-    }
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
+    });
+    ro.observe(containerRef.current);
+    return () => ro.disconnect();
   }, []);
 
   return (
@@ -578,7 +749,6 @@ export function GalaxyPanel() {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Search with autocomplete dropdown */}
           <div ref={searchBoxRef} className="relative">
             <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
             {(isSearching || isNavigating) && (
@@ -597,7 +767,6 @@ export function GalaxyPanel() {
               className="h-8 w-56 pl-8 pr-8 text-xs rounded-lg border border-border/60 bg-background/70 outline-none focus:border-blue-400/60 transition-colors"
             />
 
-            {/* Autocomplete dropdown */}
             {showDropdown && searchResults.length > 0 && (
               <div className="absolute top-full left-0 right-0 mt-1 bg-card/95 backdrop-blur-lg border border-border/60 rounded-xl shadow-xl overflow-hidden z-50 max-h-[360px] overflow-y-auto">
                 {searchResults.map((hit, idx) => {
@@ -682,6 +851,28 @@ export function GalaxyPanel() {
             )}
           </div>
           <div className="py-1">
+            {externalCount > 0 && (() => {
+              const isHidden = hiddenLangs.has(EXTERNAL_LABEL);
+              return (
+                <button
+                  key={EXTERNAL_LABEL}
+                  onClick={() => toggleLang(EXTERNAL_LABEL)}
+                  className={cn(
+                    "w-full flex items-center gap-2 px-3 py-1 text-[11px] transition-all border-b border-border/20 mb-0.5",
+                    isHidden
+                      ? "opacity-25 hover:opacity-50"
+                      : "opacity-100 hover:bg-accent/30",
+                  )}
+                  title={isHidden ? "Show external nodes" : "Hide external (out-of-cluster) nodes"}
+                >
+                  <svg className={cn("w-2.5 h-2.5 flex-shrink-0 transition-all", isHidden && "opacity-30")} viewBox="0 0 10 10">
+                    <polygon points="5,0 10,5 5,10 0,5" fill="white" />
+                  </svg>
+                  <span className="flex-1 text-left truncate text-foreground/80">External</span>
+                  <span className="text-muted-foreground/50 tabular-nums">{externalCount}</span>
+                </button>
+              );
+            })()}
             {langStats.map(({ lang, count, color }) => {
               const isHidden = hiddenLangs.has(lang);
               return (
@@ -720,36 +911,144 @@ export function GalaxyPanel() {
         </div>
       )}
 
-      {/* Focused node indicator */}
-      {galaxyFocusedNodeId !== null && data && (
-        <div className="absolute bottom-4 right-4 z-20 bg-background/60 backdrop-blur-md border border-border/50 rounded-xl px-3 py-2 shadow-sm">
-          <div className="flex items-center gap-2 text-xs">
-            <span className="w-2.5 h-2.5 rounded-full bg-white shadow-[0_0_6px_rgba(255,255,255,0.8)]" />
-            <span className="text-foreground font-medium truncate max-w-[200px]">
-              {data.nodes.find((n) => n.id === galaxyFocusedNodeId)?.name || ""}
-            </span>
-            <button
-              onClick={() => {
-                setGalaxyFocusedNodeId(null);
-                focusedIdRef.current = null;
-                refreshNodeVisuals();
-              }}
-              className="text-muted-foreground/50 hover:text-foreground text-[10px] ml-1"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* 3D Canvas */}
-      <div ref={containerRef} className="flex-1 relative bg-[#050505]">
+      {/* 2D Canvas */}
+      <div ref={containerRef} className="flex-1 relative bg-[#0a0a0f]">
         {!data && !loading && (
           <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
             <Globe className="w-8 h-8 opacity-50" />
           </div>
         )}
       </div>
+
+      {/* Following Popover for focused node */}
+      {galaxyFocusedNodeId !== null && data && (
+          (() => {
+            const gd = graphRef.current?.graphData();
+            const focusedNode = gd?.nodes?.find((n: any) => n.id === galaxyFocusedNodeId)
+              || data.nodes.find((n) => n.id === galaxyFocusedNodeId);
+            if (!focusedNode) return null;
+            const similarRepos: { id: number; name: string; color: string; rawLang: string; stars: number; sim: number }[] = [];
+            if (gd?.links) {
+              for (const l of gd.links) {
+                const srcId = typeof l.source === "object" ? l.source.id : l.source;
+                const tgtId = typeof l.target === "object" ? l.target.id : l.target;
+                const sim = l.sim || 0;
+                if (sim <= 0) continue;
+                let neighborId: number | null = null;
+                if (srcId === galaxyFocusedNodeId) neighborId = tgtId;
+                else if (tgtId === galaxyFocusedNodeId) neighborId = srcId;
+                if (neighborId === null) continue;
+                const neighbor = gd.nodes.find((n: any) => n.id === neighborId);
+                if (neighbor) {
+                  similarRepos.push({
+                    id: neighbor.id,
+                    name: neighbor.name,
+                    color: neighbor.color || '#888',
+                    rawLang: neighbor.rawLang || 'Unknown',
+                    stars: neighbor.stars || 0,
+                    sim,
+                  });
+                }
+              }
+              similarRepos.sort((a, b) => b.stars - a.stars);
+            }
+
+            return (
+              <div 
+                ref={popoverRef}
+                className="fixed z-50 bg-card/90 backdrop-blur-md border border-border/50 rounded-xl shadow-xl w-64 pointer-events-auto"
+                style={{ left: '-9999px', top: '-9999px' }}
+              >
+                <div className="p-3 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h3 className="font-semibold text-foreground text-sm leading-tight break-words">
+                        {focusedNode.name}
+                      </h3>
+                      {focusedNode._isExternal && (
+                        <span className="inline-block mt-1 text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                          External
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <a
+                        href={`https://github.com/${focusedNode.name}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-muted-foreground hover:text-primary transition-colors p-1 rounded-md hover:bg-accent"
+                        title="Open in GitHub"
+                      >
+                        <Globe className="w-3.5 h-3.5" />
+                      </a>
+                      <button
+                        onClick={() => {
+                          // Unpin the node
+                          const gd = graphRef.current?.graphData();
+                          const prev = gd?.nodes?.find((nd: any) => nd.id === galaxyFocusedNodeId);
+                          if (prev) { prev.fx = undefined; prev.fy = undefined; }
+                          setGalaxyFocusedNodeId(null);
+                          focusedIdRef.current = null;
+                          refreshNodeVisuals();
+                        }}
+                        className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded-md hover:bg-accent"
+                        title="Close"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-1.5">
+                      <span 
+                        className="w-2 h-2 rounded-full" 
+                        style={{ backgroundColor: focusedNode.color || '#888' }}
+                      />
+                      {focusedNode.rawLang || 'Unknown'}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
+                      {focusedNode.stars?.toLocaleString() || 0}
+                    </div>
+                  </div>
+                </div>
+
+                {similarRepos.length > 0 && (
+                  <div className="border-t border-border/30">
+                    <div className="px-3 py-1.5">
+                      <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Similar Repos</span>
+                    </div>
+                    <div className="max-h-[200px] overflow-y-auto pb-1.5">
+                      {similarRepos.slice(0, 10).map((repo) => (
+                        <button
+                          key={repo.id}
+                          onClick={() => {
+                            setGalaxyFocusedNodeId(repo.id);
+                            focusedIdRef.current = repo.id;
+                            refreshNodeVisuals();
+                            const target = gd?.nodes?.find((n: any) => n.id === repo.id);
+                            if (target) flyToNode(target);
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-accent/30 transition-colors"
+                        >
+                          <span
+                            className="w-2 h-2 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: repo.color }}
+                          />
+                          <span className="flex-1 text-left truncate text-foreground/80">{repo.name}</span>
+                          <span className="text-[10px] text-muted-foreground/60 flex-shrink-0">
+                            ★ {repo.stars >= 1000 ? `${(repo.stars / 1000).toFixed(1)}k` : repo.stars}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()
+        )}
     </div>
   );
 }
