@@ -5,28 +5,42 @@ from pydantic import BaseModel, Field
 
 
 class SearchRequest(BaseModel):
-    query: str = Field(..., description="User's natural language query")
-    hypothetical_tree: str | None = Field(None, description="Agent-generated hypothetical repo tree")
-    wiki_summary: str | None = Field(None, description="Agent-generated project summary")
-    top_k: int = Field(15, ge=1, le=50)
+    query: str = Field(
+        ...,
+        description="User's natural language query describing the kind of project they are looking for.",
+    )
+    keywords: list[str] | None = Field(
+        None,
+        description="5-10 repo or org name fragments for substring matching against full_name. "
+        "Use short, specific names (not generic words). "
+        "e.g. query='RAG platform' → ['dify','langchain','ragflow','llama-index','quivr','haystack'].",
+    )
+    hypothetical_tree: str | None = Field(
+        None,
+        description="A hypothetical repo directory tree (max-depth 4, 60-120 lines) for vector similarity "
+        "matching against real repo trees. Use ├──/└──/│ connectors with domain-specific filenames.",
+    )
+    top_k: int = Field(15, ge=1, le=50, description="Number of results to return")
     language: str | None = Field(None, description="Filter by programming language")
     min_stars: int | None = Field(None, ge=0, description="Filter by minimum star count")
 
 
 class RepoResult(BaseModel):
     id: int
-    score: float
+    score: float = 0.0
+    rrf_score: float = 0.0
     full_name: str
     stars: int
     language: str
     description: str
     html_url: str
-    tree_text: str
+    tree_text: str = ""
+    wiki_text: str = ""
 
 
 class SearchResponse(BaseModel):
     query: str
-    hypothetical_tree: str
+    hypothetical_tree: str = ""
     results: list[RepoResult]
 
 

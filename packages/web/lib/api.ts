@@ -89,6 +89,8 @@ export interface GalaxyNode {
   leafId: number;
   url: string;
   role: string;
+  desc?: string;
+  wiki?: string;
   x?: number;
   y?: number;
   z?: number;

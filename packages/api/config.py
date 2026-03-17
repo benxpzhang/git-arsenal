@@ -29,4 +29,6 @@ API_HOST = os.getenv('API_HOST', '0.0.0.0')
 API_PORT = int(os.getenv('API_PORT', '8003'))
 _cors_raw = os.getenv('CORS_ORIGINS', 'http://localhost:3000,http://127.0.0.1:3000')
 CORS_ORIGINS: list[str] = [s.strip() for s in _cors_raw.split(',')]
-DATA_DIR = Path(os.getenv('DATA_DIR', str(Path(__file__).resolve().parent / 'data')))
+_data_base = Path(__file__).resolve().parent / 'data'
+_data_profile = os.getenv('DATA_PROFILE', 'dev')  # dev | product | bak
+DATA_DIR = Path(os.getenv('DATA_DIR', str(_data_base / _data_profile)))

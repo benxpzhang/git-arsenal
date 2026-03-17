@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
-import { getGalaxyCluster, getGalaxySubgraph, getGalaxyNeighbors, searchGalaxy, type GalaxySubgraph } from "@/lib/api";
+import { getGalaxyCluster, getGalaxySubgraph, getGalaxyNeighbors, getGalaxyDetail, searchGalaxy, type GalaxySubgraph } from "@/lib/api";
 import { Globe, RefreshCw, Search, Loader2, Star, Eye, EyeOff, X } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
@@ -73,6 +73,7 @@ export function GalaxyPanel() {
   const hiddenLangsRef = useRef<Set<string>>(new Set());
   const hoverIdRef = useRef<number | null>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
+  const [focusedWikiText, setFocusedWikiText] = useState<string>("");
 
   useEffect(() => { hiddenLangsRef.current = hiddenLangs; }, [hiddenLangs]);
 
@@ -105,6 +106,15 @@ export function GalaxyPanel() {
       }
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [galaxyFocusedNodeId]);
+
+  useEffect(() => {
+    if (galaxyFocusedNodeId === null) { setFocusedWikiText(""); return; }
+    let cancelled = false;
+    getGalaxyDetail(galaxyFocusedNodeId).then((d) => {
+      if (!cancelled) setFocusedWikiText(d?.wiki_text || "");
+    }).catch(() => { if (!cancelled) setFocusedWikiText(""); });
+    return () => { cancelled = true; };
   }, [galaxyFocusedNodeId]);
 
   const langStats = useMemo(() => {
@@ -488,12 +498,21 @@ export function GalaxyPanel() {
           const extBadge = n._isExternal
             ? `<span style="display:inline-block;background:#f59e0b22;color:#f59e0b;font-size:9px;padding:1px 5px;border-radius:4px;border:1px solid #f59e0b44;margin-left:4px;">External</span>`
             : "";
+          const isWiki = !!n.wiki;
+          const snippet = n.wiki || n.desc || "";
+          const tagStyle = isWiki
+            ? "background:#3b82f622;color:#60a5fa;border:1px solid #3b82f633;"
+            : "background:#71717a22;color:#a1a1aa;border:1px solid #71717a33;";
+          const tagLabel = isWiki ? "DeepWiki" : "GitHub Desc";
+          const snippetHtml = snippet
+            ? `<div style="margin-top:6px"><span style="display:inline-block;font-size:9px;padding:1px 5px;border-radius:4px;${tagStyle}">${tagLabel}</span><div class="text-xs text-muted-foreground/80 mt-1 leading-relaxed" style="display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden">${snippet.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div></div>`
+            : "";
           return `
-            <div class="bg-card/90 backdrop-blur-md border border-border/50 rounded-xl p-3 shadow-xl max-w-[280px] pointer-events-none">
+            <div class="bg-card/90 backdrop-blur-md border border-border/50 rounded-xl p-3 shadow-xl max-w-[320px] pointer-events-none">
               <div class="flex items-start justify-between gap-3 mb-1">
                 <div class="font-semibold text-foreground text-sm break-all leading-tight">${n.name}${extBadge}</div>
               </div>
-              <div class="flex items-center gap-3 text-xs text-muted-foreground mt-2">
+              <div class="flex items-center gap-3 text-xs text-muted-foreground mt-1.5">
                 <div class="flex items-center gap-1.5">
                   <span class="w-2 h-2 rounded-full" style="background-color: ${n.color || '#888'}"></span>
                   ${n.rawLang || 'Unknown'}
@@ -503,6 +522,7 @@ export function GalaxyPanel() {
                   ${n.stars?.toLocaleString() || 0}
                 </div>
               </div>
+              ${snippetHtml}
             </div>
           `;
         })
@@ -956,7 +976,7 @@ export function GalaxyPanel() {
             return (
               <div 
                 ref={popoverRef}
-                className="fixed z-50 bg-card/90 backdrop-blur-md border border-border/50 rounded-xl shadow-xl w-64 pointer-events-auto"
+                className="fixed z-50 bg-card/90 backdrop-blur-md border border-border/50 rounded-xl shadow-xl w-80 pointer-events-auto"
                 style={{ left: '-9999px', top: '-9999px' }}
               >
                 <div className="p-3 space-y-2">
@@ -1012,6 +1032,27 @@ export function GalaxyPanel() {
                       {focusedNode.stars?.toLocaleString() || 0}
                     </div>
                   </div>
+
+                  {(() => {
+                    const isWiki = !!(focusedWikiText || focusedNode.wiki);
+                    const text = focusedWikiText || focusedNode.wiki || focusedNode.desc;
+                    if (!text) return null;
+                    return (
+                      <div className="space-y-1.5">
+                        <span className={cn(
+                          "inline-block text-[9px] px-1.5 py-0.5 rounded font-medium border",
+                          isWiki
+                            ? "bg-blue-500/10 text-blue-400 border-blue-500/20"
+                            : "bg-zinc-500/10 text-zinc-400 border-zinc-500/20"
+                        )}>
+                          {isWiki ? "DeepWiki" : "GitHub Desc"}
+                        </span>
+                        <div className="max-h-[200px] overflow-y-auto text-xs text-muted-foreground/80 leading-relaxed whitespace-pre-line">
+                          {text}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {similarRepos.length > 0 && (

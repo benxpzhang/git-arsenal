@@ -24,9 +24,12 @@ EDGE_DST: np.ndarray | None = None
 EDGE_SIM: np.ndarray | None = None
 CLUSTER_TREE: dict | None = None
 CLUSTER_NODES: list[dict] = []
+CLUSTER_NODE_MAP: dict[int, dict] = {}  # id -> node for O(1) lookup (supports non-sequential IDs)
 REPO_NAME_TO_IDX: dict[str, int] = {}
 META_FILE_PATH: Path | None = None
 REPO_OFFSETS: list[int] = []
+WIKI_FILE_PATH: Path | None = None
+WIKI_OFFSETS: list[int] = []
 HUB_INDICES: list[int] = []  # repos with >= 5 edges, used for random focus
 
 # Language -> color mapping
@@ -61,7 +64,7 @@ DEFAULT_COLOR = "#6b7280"
 def load_galaxy_data():
     """Load all data files at startup."""
     global REPOS, POSITIONS, LEAF_LABELS, EDGE_SRC, EDGE_DST, EDGE_SIM
-    global CLUSTER_TREE, CLUSTER_NODES, REPO_NAME_TO_IDX, META_FILE_PATH, REPO_OFFSETS
+    global CLUSTER_TREE, CLUSTER_NODES, CLUSTER_NODE_MAP, REPO_NAME_TO_IDX, META_FILE_PATH, REPO_OFFSETS
 
     meta_path = DATA_DIR / "repos_meta.jsonl"
     META_FILE_PATH = meta_path
@@ -92,6 +95,34 @@ def load_galaxy_data():
                 REPOS.append({})
 
     print(f"  Galaxy: {len(REPOS):,} repos loaded")
+
+    # Wiki text: load snippets for hover + byte offsets for on-demand full read
+    global WIKI_FILE_PATH, WIKI_OFFSETS
+    wiki_path = DATA_DIR / "wiki_texts.jsonl"
+    wiki_count = 0
+    if wiki_path.exists():
+        WIKI_FILE_PATH = wiki_path
+        WIKI_OFFSETS = []
+        with open(wiki_path, "rb") as f:
+            idx = 0
+            while True:
+                offset = f.tell()
+                line = f.readline()
+                if not line:
+                    break
+                WIKI_OFFSETS.append(offset)
+                if idx < len(REPOS):
+                    try:
+                        obj = json.loads(line)
+                        wt = (obj.get("wiki_text") or "").strip()
+                        if len(wt) >= 100:
+                            first_para = wt.split("\n\n")[0].split("\n")[0]
+                            REPOS[idx]["wiki_snippet"] = first_para[:200]
+                            wiki_count += 1
+                    except Exception:
+                        pass
+                idx += 1
+        print(f"  Galaxy: {wiki_count:,} wiki snippets loaded")
 
     # Positions
     pos_path = DATA_DIR / "positions_3d.npy"
@@ -131,6 +162,7 @@ def load_galaxy_data():
         with open(tree_path) as f:
             CLUSTER_TREE = json.load(f)
         CLUSTER_NODES = CLUSTER_TREE.get("nodes", [])
+        CLUSTER_NODE_MAP = {cn["id"]: cn for cn in CLUSTER_NODES}
         print(f"  Galaxy: {len(CLUSTER_NODES)} cluster nodes")
 
 
@@ -166,6 +198,8 @@ def _make_node(idx: int, role: str = "cluster") -> dict:
         "leafId": 0,
         "url": repo.get("html_url", ""),
         "role": role,
+        "desc": repo.get("description", ""),
+        "wiki": repo.get("wiki_snippet", ""),
     }
 
     # Add position if available
@@ -179,8 +213,9 @@ def _make_node(idx: int, role: str = "cluster") -> dict:
     if LEAF_LABELS is not None and idx < len(LEAF_LABELS):
         leaf_id = int(LEAF_LABELS[idx])
         node["leafId"] = leaf_id
-        if leaf_id < len(CLUSTER_NODES):
-            node["cluster"] = CLUSTER_NODES[leaf_id].get("name", "")
+        cn = CLUSTER_NODE_MAP.get(leaf_id)
+        if cn:
+            node["cluster"] = cn.get("name", "")
 
     return node
 
@@ -225,8 +260,8 @@ def get_subgraph(focus_idx: int, max_nodes: int = 300) -> dict:
     cluster_size = 0
     parent_cluster_id = None
 
-    if leaf_id < len(CLUSTER_NODES):
-        cn = CLUSTER_NODES[leaf_id]
+    cn = CLUSTER_NODE_MAP.get(leaf_id)
+    if cn:
         cluster_name = cn.get("name", "")
         cluster_size = cn.get("size", 0)
         parent_cluster_id = cn.get("parent_id")
@@ -316,18 +351,19 @@ def get_subgraph(focus_idx: int, max_nodes: int = 300) -> dict:
 def _get_ancestors(leaf_id: int) -> list[dict]:
     """Get ancestor chain from root to the leaf's parent."""
     ancestors = []
-    if not CLUSTER_NODES or leaf_id >= len(CLUSTER_NODES):
+    current = CLUSTER_NODE_MAP.get(leaf_id)
+    if not current:
         return ancestors
 
-    # Walk up the tree
-    current = CLUSTER_NODES[leaf_id]
     visited = set()
     while current.get("parent_id") is not None:
         pid = current["parent_id"]
-        if pid in visited or pid >= len(CLUSTER_NODES):
+        if pid in visited:
+            break
+        parent = CLUSTER_NODE_MAP.get(pid)
+        if not parent:
             break
         visited.add(pid)
-        parent = CLUSTER_NODES[pid]
         ancestors.append({
             "id": parent["id"],
             "name": parent.get("name", ""),
@@ -342,10 +378,11 @@ def _get_ancestors(leaf_id: int) -> list[dict]:
 
 def _get_siblings(leaf_id: int) -> list[dict]:
     """Get sibling clusters (same parent)."""
-    if not CLUSTER_NODES or leaf_id >= len(CLUSTER_NODES):
+    cn = CLUSTER_NODE_MAP.get(leaf_id)
+    if not cn:
         return []
 
-    parent_id = CLUSTER_NODES[leaf_id].get("parent_id")
+    parent_id = cn.get("parent_id")
     if parent_id is None:
         return []
 
@@ -424,10 +461,24 @@ def get_neighbors(idx: int, limit: int = 15) -> dict:
     return {"nodes": nodes, "links": links}
 
 
+def _load_wiki_text(idx: int) -> str:
+    """Load full wiki text from wiki_texts.jsonl on-demand."""
+    if WIKI_FILE_PATH is None or idx < 0 or idx >= len(WIKI_OFFSETS):
+        return ""
+    try:
+        with open(WIKI_FILE_PATH, "rb") as f:
+            f.seek(WIKI_OFFSETS[idx])
+            line = f.readline()
+            obj = json.loads(line)
+            return (obj.get("wiki_text") or "").strip()
+    except Exception:
+        return ""
+
+
 def get_node_detail(idx: int) -> dict:
     """Get detailed info for a single node."""
     if idx < 0 or idx >= len(REPOS):
-        return {"id": idx, "name": "", "description": "", "tree_text": "", "readme": "", "connections": []}
+        return {"id": idx, "name": "", "description": "", "wiki_text": "", "tree_text": "", "readme": "", "connections": []}
 
     detail = _load_repo_detail(idx)
     repo = REPOS[idx]
@@ -468,6 +519,7 @@ def get_node_detail(idx: int) -> dict:
         "id": idx,
         "name": repo.get("full_name", ""),
         "description": repo.get("description", ""),
+        "wiki_text": _load_wiki_text(idx),
         "tree_text": detail.get("tree_text", ""),
         "readme": detail.get("readme", ""),
         "connections": connections[:20],
@@ -476,10 +528,9 @@ def get_node_detail(idx: int) -> dict:
 
 def get_cluster_subgraph(cluster_id: int, focus_id: int | None = None, max_nodes: int = 300) -> dict:
     """Get subgraph for a specific cluster."""
-    if cluster_id >= len(CLUSTER_NODES):
+    cn = CLUSTER_NODE_MAP.get(cluster_id)
+    if not cn:
         return {"detail": "Invalid cluster ID"}
-
-    cn = CLUSTER_NODES[cluster_id]
 
     # Find all repos in this cluster
     if cn.get("is_leaf"):
@@ -535,10 +586,11 @@ def expand_to_parent(idx: int, max_nodes: int = 300) -> dict:
         return get_subgraph(idx, max_nodes)
 
     leaf_id = int(LEAF_LABELS[idx])
-    if leaf_id >= len(CLUSTER_NODES):
+    cn = CLUSTER_NODE_MAP.get(leaf_id)
+    if not cn:
         return get_subgraph(idx, max_nodes)
 
-    parent_id = CLUSTER_NODES[leaf_id].get("parent_id")
+    parent_id = cn.get("parent_id")
     if parent_id is None:
         return get_subgraph(idx, max_nodes)
 

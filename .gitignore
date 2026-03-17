@@ -28,8 +28,16 @@ out/
 .DS_Store
 Thumbs.db
 
-# Data files (large, generated — see README for setup)
-packages/api/data/
+# Data files (large — see README for data profiles)
+# dev/ (~31MB) is committed for quick onboarding
+packages/api/data/product/
+packages/api/data/bak/
+packages/api/data_bak_*/
+
+# Generated output (test results, analysis dumps)
+*.log
+scripts/*.jsonl
+scripts/*.txt
 
 # Docker
 docker-compose.override.yml

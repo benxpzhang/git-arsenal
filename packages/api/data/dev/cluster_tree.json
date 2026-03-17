@@ -1,0 +1,1670 @@
+{
+ "target_leaf_size": 150,
+ "total_repos": 1178,
+ "total_nodes": 42,
+ "leaf_count": 10,
+ "max_depth": 10,
+ "nodes": [
+  {
+   "id": 0,
+   "name": "Web Frontend (Python)",
+   "depth": 0,
+   "parent_id": null,
+   "is_leaf": false,
+   "size": 1178,
+   "avg_stars": 1192,
+   "top_langs": [
+    [
+     "Python",
+     22316
+    ],
+    [
+     "TypeScript",
+     10728
+    ],
+    [
+     "JavaScript",
+     6081
+    ]
+   ],
+   "top_repos": [
+    [
+     "Significant-Gravitas/AutoGPT",
+     181902
+    ],
+    [
+     "massgravel/Microsoft-Activation-Scripts",
+     166501
+    ],
+    [
+     "ollama/ollama",
+     163022
+    ]
+   ],
+   "children_ids": [
+    1,
+    986
+   ]
+  },
+  {
+   "id": 1,
+   "name": "Web Frontend (TypeScript)",
+   "depth": 1,
+   "parent_id": 0,
+   "is_leaf": false,
+   "size": 540,
+   "avg_stars": 1256,
+   "top_langs": [
+    [
+     "TypeScript",
+     10606
+    ],
+    [
+     "JavaScript",
+     5466
+    ],
+    [
+     "Go",
+     4430
+    ]
+   ],
+   "top_repos": [
+    [
+     "Significant-Gravitas/AutoGPT",
+     181902
+    ],
+    [
+     "ollama/ollama",
+     163022
+    ],
+    [
+     "DigitalPlatDev/FreeDomain",
+     147914
+    ]
+   ],
+   "children_ids": [
+    2
+   ]
+  },
+  {
+   "id": 2,
+   "name": "Web Frontend (TypeScript)",
+   "depth": 2,
+   "parent_id": 1,
+   "is_leaf": false,
+   "size": 540,
+   "avg_stars": 1222,
+   "top_langs": [
+    [
+     "TypeScript",
+     8491
+    ],
+    [
+     "JavaScript",
+     4617
+    ],
+    [
+     "Kotlin",
+     1507
+    ]
+   ],
+   "top_repos": [
+    [
+     "DigitalPlatDev/FreeDomain",
+     147914
+    ],
+    [
+     "f/prompts.chat",
+     145853
+    ],
+    [
+     "labuladong/fucking-algorithm",
+     132712
+    ]
+   ],
+   "children_ids": [
+    406
+   ]
+  },
+  {
+   "id": 406,
+   "name": "Mobile (Kotlin)",
+   "depth": 3,
+   "parent_id": 2,
+   "is_leaf": false,
+   "size": 540,
+   "avg_stars": 1059,
+   "top_langs": [
+    [
+     "Kotlin",
+     1492
+    ],
+    [
+     "C#",
+     1161
+    ],
+    [
+     "Swift",
+     1120
+    ]
+   ],
+   "top_repos": [
+    [
+     "rustdesk/rustdesk",
+     107816
+    ],
+    [
+     "localsend/localsend",
+     75270
+    ],
+    [
+     "AppFlowy-IO/AppFlowy",
+     68177
+    ]
+   ],
+   "children_ids": [
+    548
+   ]
+  },
+  {
+   "id": 548,
+   "name": "Mobile (Kotlin)",
+   "depth": 4,
+   "parent_id": 406,
+   "is_leaf": false,
+   "size": 540,
+   "avg_stars": 1017,
+   "top_langs": [
+    [
+     "Kotlin",
+     1479
+    ],
+    [
+     "Dart",
+     843
+    ],
+    [
+     "Java",
+     587
+    ]
+   ],
+   "top_repos": [
+    [
+     "localsend/localsend",
+     75270
+    ],
+    [
+     "AppFlowy-IO/AppFlowy",
+     68177
+    ],
+    [
+     "KRTirtho/spotube",
+     44442
+    ]
+   ],
+   "children_ids": [
+    549
+   ]
+  },
+  {
+   "id": 549,
+   "name": "Mobile (Kotlin)",
+   "depth": 5,
+   "parent_id": 548,
+   "is_leaf": false,
+   "size": 540,
+   "avg_stars": 1016,
+   "top_langs": [
+    [
+     "Kotlin",
+     1435
+    ],
+    [
+     "Java",
+     543
+    ],
+    [
+     "JavaScript",
+     32
+    ]
+   ],
+   "top_repos": [
+    [
+     "gkd-kit/gkd",
+     36109
+    ],
+    [
+     "lizongying/my-tv",
+     32254
+    ],
+    [
+     "yuliskov/SmartTube",
+     28287
+    ]
+   ],
+   "children_ids": [
+    550
+   ]
+  },
+  {
+   "id": 550,
+   "name": "Mobile (Kotlin)",
+   "depth": 6,
+   "parent_id": 549,
+   "is_leaf": false,
+   "size": 540,
+   "avg_stars": 1078,
+   "top_langs": [
+    [
+     "Kotlin",
+     1336
+    ],
+    [
+     "Java",
+     319
+    ],
+    [
+     "Shell",
+     29
+    ]
+   ],
+   "top_repos": [
+    [
+     "gkd-kit/gkd",
+     36109
+    ],
+    [
+     "lizongying/my-tv",
+     32254
+    ],
+    [
+     "yuliskov/SmartTube",
+     28287
+    ]
+   ],
+   "children_ids": [
+    572
+   ]
+  },
+  {
+   "id": 572,
+   "name": "Mobile (Kotlin)",
+   "depth": 7,
+   "parent_id": 550,
+   "is_leaf": false,
+   "size": 540,
+   "avg_stars": 1413,
+   "top_langs": [
+    [
+     "Kotlin",
+     546
+    ],
+    [
+     "Java",
+     208
+    ],
+    [
+     "Shell",
+     28
+    ]
+   ],
+   "top_repos": [
+    [
+     "lizongying/my-tv",
+     32254
+    ],
+    [
+     "yuliskov/SmartTube",
+     28287
+    ],
+    [
+     "JunkFood02/Seal",
+     24700
+    ]
+   ],
+   "children_ids": [
+    573,
+    582
+   ]
+  },
+  {
+   "id": 573,
+   "name": "Mobile (Kotlin)",
+   "depth": 8,
+   "parent_id": 572,
+   "is_leaf": false,
+   "size": 252,
+   "avg_stars": 1275,
+   "top_langs": [
+    [
+     "Kotlin",
+     266
+    ],
+    [
+     "Java",
+     150
+    ],
+    [
+     "Shell",
+     27
+    ]
+   ],
+   "top_repos": [
+    [
+     "lizongying/my-tv",
+     32254
+    ],
+    [
+     "pppscn/SmsForwarder",
+     24593
+    ],
+    [
+     "LSPosed/LSPosed",
+     22824
+    ]
+   ],
+   "children_ids": [
+    574
+   ]
+  },
+  {
+   "id": 574,
+   "name": "Mobile (Kotlin)",
+   "depth": 9,
+   "parent_id": 573,
+   "is_leaf": false,
+   "size": 252,
+   "avg_stars": 1054,
+   "top_langs": [
+    [
+     "Kotlin",
+     171
+    ],
+    [
+     "Java",
+     71
+    ],
+    [
+     "Shell",
+     3
+    ]
+   ],
+   "top_repos": [
+    [
+     "amir1376/ab-download-manager",
+     13440
+    ],
+    [
+     "Team-xManager/xManager",
+     12146
+    ],
+    [
+     "TeamVanced/VancedManager",
+     8211
+    ]
+   ],
+   "children_ids": [
+    575,
+    576
+   ]
+  },
+  {
+   "id": 575,
+   "name": "Mobile (Kotlin)",
+   "depth": 10,
+   "parent_id": 574,
+   "is_leaf": true,
+   "size": 140,
+   "avg_stars": 1299,
+   "top_langs": [
+    [
+     "Kotlin",
+     95
+    ],
+    [
+     "Java",
+     36
+    ],
+    [
+     "Shell",
+     3
+    ]
+   ],
+   "top_repos": [
+    [
+     "amir1376/ab-download-manager",
+     13440
+    ],
+    [
+     "Team-xManager/xManager",
+     12146
+    ],
+    [
+     "TeamVanced/VancedManager",
+     8211
+    ]
+   ],
+   "children_ids": []
+  },
+  {
+   "id": 576,
+   "name": "Mobile (Kotlin)",
+   "depth": 10,
+   "parent_id": 574,
+   "is_leaf": true,
+   "size": 112,
+   "avg_stars": 749,
+   "top_langs": [
+    [
+     "Kotlin",
+     76
+    ],
+    [
+     "Java",
+     35
+    ],
+    [
+     "C++",
+     1
+    ]
+   ],
+   "top_repos": [
+    [
+     "fumiama/copymanga",
+     4110
+    ],
+    [
+     "OxygenCobalt/Auxio",
+     3558
+    ],
+    [
+     "tanujnotes/Olauncher",
+     3292
+    ]
+   ],
+   "children_ids": []
+  },
+  {
+   "id": 582,
+   "name": "Mobile (Kotlin)",
+   "depth": 8,
+   "parent_id": 572,
+   "is_leaf": false,
+   "size": 288,
+   "avg_stars": 1582,
+   "top_langs": [
+    [
+     "Kotlin",
+     280
+    ],
+    [
+     "Java",
+     58
+    ],
+    [
+     "Dart",
+     17
+    ]
+   ],
+   "top_repos": [
+    [
+     "yuliskov/SmartTube",
+     28287
+    ],
+    [
+     "JunkFood02/Seal",
+     24700
+    ],
+    [
+     "Predidit/Kazumi",
+     21138
+    ]
+   ],
+   "children_ids": [
+    583
+   ]
+  },
+  {
+   "id": 583,
+   "name": "Mobile (Kotlin)",
+   "depth": 9,
+   "parent_id": 582,
+   "is_leaf": false,
+   "size": 288,
+   "avg_stars": 1362,
+   "top_langs": [
+    [
+     "Kotlin",
+     225
+    ],
+    [
+     "Java",
+     39
+    ],
+    [
+     "Dart",
+     7
+    ]
+   ],
+   "top_repos": [
+    [
+     "JunkFood02/Seal",
+     24700
+    ],
+    [
+     "mihonapp/mihon",
+     18627
+    ],
+    [
+     "T8RIN/ImageToolbox",
+     11753
+    ]
+   ],
+   "children_ids": [
+    584,
+    585
+   ]
+  },
+  {
+   "id": 584,
+   "name": "Mobile (Kotlin)",
+   "depth": 10,
+   "parent_id": 583,
+   "is_leaf": true,
+   "size": 144,
+   "avg_stars": 1588,
+   "top_langs": [
+    [
+     "Kotlin",
+     125
+    ],
+    [
+     "Java",
+     9
+    ],
+    [
+     "Dart",
+     3
+    ]
+   ],
+   "top_repos": [
+    [
+     "JunkFood02/Seal",
+     24700
+    ],
+    [
+     "mihonapp/mihon",
+     18627
+    ],
+    [
+     "T8RIN/ImageToolbox",
+     11753
+    ]
+   ],
+   "children_ids": []
+  },
+  {
+   "id": 585,
+   "name": "Mobile (Kotlin)",
+   "depth": 10,
+   "parent_id": 583,
+   "is_leaf": true,
+   "size": 144,
+   "avg_stars": 1136,
+   "top_langs": [
+    [
+     "Kotlin",
+     100
+    ],
+    [
+     "Java",
+     30
+    ],
+    [
+     "Dart",
+     4
+    ]
+   ],
+   "top_repos": [
+    [
+     "breezy-weather/breezy-weather",
+     9371
+    ],
+    [
+     "recloudstream/cloudstream",
+     8924
+    ],
+    [
+     "Droid-ify/client",
+     6408
+    ]
+   ],
+   "children_ids": []
+  },
+  {
+   "id": 986,
+   "name": "LLM/Agent (Python)",
+   "depth": 1,
+   "parent_id": 0,
+   "is_leaf": false,
+   "size": 638,
+   "avg_stars": 1106,
+   "top_langs": [
+    [
+     "Python",
+     20110
+    ],
+    [
+     "C++",
+     3199
+    ],
+    [
+     "Jupyter Notebook",
+     3003
+    ]
+   ],
+   "top_repos": [
+    [
+     "massgravel/Microsoft-Activation-Scripts",
+     166501
+    ],
+    [
+     "AUTOMATIC1111/stable-diffusion-webui",
+     160710
+    ],
+    [
+     "yt-dlp/yt-dlp",
+     147770
+    ]
+   ],
+   "children_ids": [
+    1362
+   ]
+  },
+  {
+   "id": 1362,
+   "name": "Computer Vision (Python)",
+   "depth": 2,
+   "parent_id": 986,
+   "is_leaf": false,
+   "size": 638,
+   "avg_stars": 1264,
+   "top_langs": [
+    [
+     "Python",
+     12596
+    ],
+    [
+     "Jupyter Notebook",
+     2286
+    ],
+    [
+     "C++",
+     511
+    ]
+   ],
+   "top_repos": [
+    [
+     "AUTOMATIC1111/stable-diffusion-webui",
+     160710
+    ],
+    [
+     "langchain-ai/langchain",
+     127058
+    ],
+    [
+     "open-webui/open-webui",
+     124451
+    ]
+   ],
+   "children_ids": [
+    1363,
+    1542
+   ]
+  },
+  {
+   "id": 1363,
+   "name": "Computer Vision (Python)",
+   "depth": 3,
+   "parent_id": 1362,
+   "is_leaf": false,
+   "size": 420,
+   "avg_stars": 834,
+   "top_langs": [
+    [
+     "Python",
+     6623
+    ],
+    [
+     "Jupyter Notebook",
+     1182
+    ],
+    [
+     "C++",
+     389
+    ]
+   ],
+   "top_repos": [
+    [
+     "hacksider/Deep-Live-Cam",
+     79581
+    ],
+    [
+     "PaddlePaddle/PaddleOCR",
+     70951
+    ],
+    [
+     "ultralytics/yolov5",
+     56830
+    ]
+   ],
+   "children_ids": [
+    1459
+   ]
+  },
+  {
+   "id": 1459,
+   "name": "Computer Vision (Python)",
+   "depth": 4,
+   "parent_id": 1363,
+   "is_leaf": false,
+   "size": 420,
+   "avg_stars": 786,
+   "top_langs": [
+    [
+     "Python",
+     3442
+    ],
+    [
+     "C++",
+     285
+    ],
+    [
+     "Jupyter Notebook",
+     273
+    ]
+   ],
+   "top_repos": [
+    [
+     "PaddlePaddle/PaddleOCR",
+     70951
+    ],
+    [
+     "ultralytics/yolov5",
+     56830
+    ],
+    [
+     "lllyasviel/ControlNet",
+     33655
+    ]
+   ],
+   "children_ids": [
+    1460,
+    1503
+   ]
+  },
+  {
+   "id": 1460,
+   "name": "3D/Graphics (Python)",
+   "depth": 5,
+   "parent_id": 1459,
+   "is_leaf": false,
+   "size": 205,
+   "avg_stars": 659,
+   "top_langs": [
+    [
+     "Python",
+     1688
+    ],
+    [
+     "C++",
+     205
+    ],
+    [
+     "Jupyter Notebook",
+     109
+    ]
+   ],
+   "top_repos": [
+    [
+     "Genesis-Embodied-AI/Genesis",
+     28153
+    ],
+    [
+     "graphdeco-inria/gaussian-splatting",
+     20712
+    ],
+    [
+     "NVlabs/instant-ngp",
+     17277
+    ]
+   ],
+   "children_ids": [
+    1461
+   ]
+  },
+  {
+   "id": 1461,
+   "name": "3D/Graphics (Python)",
+   "depth": 6,
+   "parent_id": 1460,
+   "is_leaf": false,
+   "size": 205,
+   "avg_stars": 685,
+   "top_langs": [
+    [
+     "Python",
+     1340
+    ],
+    [
+     "Jupyter Notebook",
+     85
+    ],
+    [
+     "C++",
+     34
+    ]
+   ],
+   "top_repos": [
+    [
+     "graphdeco-inria/gaussian-splatting",
+     20712
+    ],
+    [
+     "NVlabs/instant-ngp",
+     17277
+    ],
+    [
+     "Tencent-Hunyuan/Hunyuan3D-2",
+     12666
+    ]
+   ],
+   "children_ids": [
+    1462
+   ]
+  },
+  {
+   "id": 1462,
+   "name": "3D/Graphics (Python)",
+   "depth": 7,
+   "parent_id": 1461,
+   "is_leaf": false,
+   "size": 205,
+   "avg_stars": 730,
+   "top_langs": [
+    [
+     "Python",
+     931
+    ],
+    [
+     "Jupyter Notebook",
+     60
+    ],
+    [
+     "C++",
+     31
+    ]
+   ],
+   "top_repos": [
+    [
+     "graphdeco-inria/gaussian-splatting",
+     20712
+    ],
+    [
+     "NVlabs/instant-ngp",
+     17277
+    ],
+    [
+     "Tencent-Hunyuan/Hunyuan3D-2",
+     12666
+    ]
+   ],
+   "children_ids": [
+    1476
+   ]
+  },
+  {
+   "id": 1476,
+   "name": "3D/Graphics (Python)",
+   "depth": 8,
+   "parent_id": 1462,
+   "is_leaf": false,
+   "size": 205,
+   "avg_stars": 830,
+   "top_langs": [
+    [
+     "Python",
+     323
+    ],
+    [
+     "Jupyter Notebook",
+     23
+    ],
+    [
+     "C++",
+     20
+    ]
+   ],
+   "top_repos": [
+    [
+     "graphdeco-inria/gaussian-splatting",
+     20712
+    ],
+    [
+     "NVlabs/instant-ngp",
+     17277
+    ],
+    [
+     "nerfstudio-project/nerfstudio",
+     11217
+    ]
+   ],
+   "children_ids": [
+    1477
+   ]
+  },
+  {
+   "id": 1477,
+   "name": "3D/Graphics (Python)",
+   "depth": 9,
+   "parent_id": 1476,
+   "is_leaf": false,
+   "size": 205,
+   "avg_stars": 788,
+   "top_langs": [
+    [
+     "Python",
+     161
+    ],
+    [
+     "Jupyter Notebook",
+     14
+    ],
+    [
+     "C++",
+     14
+    ]
+   ],
+   "top_repos": [
+    [
+     "graphdeco-inria/gaussian-splatting",
+     20712
+    ],
+    [
+     "MrNeRF/awesome-3D-gaussian-splatting",
+     8329
+    ],
+    [
+     "VAST-AI-Research/TripoSR",
+     6177
+    ]
+   ],
+   "children_ids": [
+    1478,
+    1479
+   ]
+  },
+  {
+   "id": 1478,
+   "name": "3D/Graphics (Python)",
+   "depth": 10,
+   "parent_id": 1477,
+   "is_leaf": true,
+   "size": 136,
+   "avg_stars": 901,
+   "top_langs": [
+    [
+     "Python",
+     106
+    ],
+    [
+     "Jupyter Notebook",
+     10
+    ],
+    [
+     "Cuda",
+     10
+    ]
+   ],
+   "top_repos": [
+    [
+     "graphdeco-inria/gaussian-splatting",
+     20712
+    ],
+    [
+     "MrNeRF/awesome-3D-gaussian-splatting",
+     8329
+    ],
+    [
+     "nerfstudio-project/gsplat",
+     4530
+    ]
+   ],
+   "children_ids": []
+  },
+  {
+   "id": 1479,
+   "name": "3D/Graphics (Python)",
+   "depth": 10,
+   "parent_id": 1477,
+   "is_leaf": true,
+   "size": 69,
+   "avg_stars": 566,
+   "top_langs": [
+    [
+     "Python",
+     55
+    ],
+    [
+     "C++",
+     8
+    ],
+    [
+     "Jupyter Notebook",
+     4
+    ]
+   ],
+   "top_repos": [
+    [
+     "VAST-AI-Research/TripoSR",
+     6177
+    ],
+    [
+     "Tencent-Hunyuan/Hunyuan3D-2.1",
+     2578
+    ],
+    [
+     "darglein/ADOP",
+     2033
+    ]
+   ],
+   "children_ids": []
+  },
+  {
+   "id": 1503,
+   "name": "Computer Vision (Python)",
+   "depth": 5,
+   "parent_id": 1459,
+   "is_leaf": false,
+   "size": 215,
+   "avg_stars": 915,
+   "top_langs": [
+    [
+     "Python",
+     1754
+    ],
+    [
+     "Jupyter Notebook",
+     164
+    ],
+    [
+     "C++",
+     80
+    ]
+   ],
+   "top_repos": [
+    [
+     "PaddlePaddle/PaddleOCR",
+     70951
+    ],
+    [
+     "ultralytics/yolov5",
+     56830
+    ],
+    [
+     "lllyasviel/ControlNet",
+     33655
+    ]
+   ],
+   "children_ids": [
+    1533
+   ]
+  },
+  {
+   "id": 1533,
+   "name": "Computer Vision (Python)",
+   "depth": 6,
+   "parent_id": 1503,
+   "is_leaf": false,
+   "size": 215,
+   "avg_stars": 1092,
+   "top_langs": [
+    [
+     "Python",
+     390
+    ],
+    [
+     "C++",
+     66
+    ],
+    [
+     "Jupyter Notebook",
+     37
+    ]
+   ],
+   "top_repos": [
+    [
+     "PaddlePaddle/PaddleOCR",
+     70951
+    ],
+    [
+     "ultralytics/yolov5",
+     56830
+    ],
+    [
+     "WongKinYiu/yolov7",
+     14106
+    ]
+   ],
+   "children_ids": [
+    1534
+   ]
+  },
+  {
+   "id": 1534,
+   "name": "Computer Vision (Python)",
+   "depth": 7,
+   "parent_id": 1533,
+   "is_leaf": false,
+   "size": 215,
+   "avg_stars": 1055,
+   "top_langs": [
+    [
+     "Python",
+     254
+    ],
+    [
+     "C++",
+     51
+    ],
+    [
+     "Jupyter Notebook",
+     33
+    ]
+   ],
+   "top_repos": [
+    [
+     "ultralytics/yolov5",
+     56830
+    ],
+    [
+     "WongKinYiu/yolov7",
+     14106
+    ],
+    [
+     "Megvii-BaseDetection/YOLOX",
+     10338
+    ]
+   ],
+   "children_ids": [
+    1535
+   ]
+  },
+  {
+   "id": 1535,
+   "name": "Computer Vision (Python)",
+   "depth": 8,
+   "parent_id": 1534,
+   "is_leaf": false,
+   "size": 215,
+   "avg_stars": 1299,
+   "top_langs": [
+    [
+     "Python",
+     181
+    ],
+    [
+     "Jupyter Notebook",
+     25
+    ],
+    [
+     "C#",
+     3
+    ]
+   ],
+   "top_repos": [
+    [
+     "ultralytics/yolov5",
+     56830
+    ],
+    [
+     "WongKinYiu/yolov7",
+     14106
+    ],
+    [
+     "Megvii-BaseDetection/YOLOX",
+     10338
+    ]
+   ],
+   "children_ids": [
+    1536,
+    1537
+   ]
+  },
+  {
+   "id": 1536,
+   "name": "Computer Vision (Python)",
+   "depth": 9,
+   "parent_id": 1535,
+   "is_leaf": true,
+   "size": 130,
+   "avg_stars": 1553,
+   "top_langs": [
+    [
+     "Python",
+     102
+    ],
+    [
+     "Jupyter Notebook",
+     19
+    ],
+    [
+     "C#",
+     3
+    ]
+   ],
+   "top_repos": [
+    [
+     "ultralytics/yolov5",
+     56830
+    ],
+    [
+     "WongKinYiu/yolov7",
+     14106
+    ],
+    [
+     "Megvii-BaseDetection/YOLOX",
+     10338
+    ]
+   ],
+   "children_ids": []
+  },
+  {
+   "id": 1537,
+   "name": "Computer Vision (Python)",
+   "depth": 9,
+   "parent_id": 1535,
+   "is_leaf": true,
+   "size": 85,
+   "avg_stars": 911,
+   "top_langs": [
+    [
+     "Python",
+     79
+    ],
+    [
+     "Jupyter Notebook",
+     6
+    ]
+   ],
+   "top_repos": [
+    [
+     "WongKinYiu/yolov9",
+     9474
+    ],
+    [
+     "CASIA-LMC-Lab/FastSAM",
+     8266
+    ],
+    [
+     "z1069614715/objectdetection_script",
+     7043
+    ]
+   ],
+   "children_ids": []
+  },
+  {
+   "id": 1542,
+   "name": "LLM/Agent (Python)",
+   "depth": 3,
+   "parent_id": 1362,
+   "is_leaf": false,
+   "size": 218,
+   "avg_stars": 1735,
+   "top_langs": [
+    [
+     "Python",
+     5973
+    ],
+    [
+     "Jupyter Notebook",
+     1104
+    ],
+    [
+     "C++",
+     122
+    ]
+   ],
+   "top_repos": [
+    [
+     "AUTOMATIC1111/stable-diffusion-webui",
+     160710
+    ],
+    [
+     "langchain-ai/langchain",
+     127058
+    ],
+    [
+     "open-webui/open-webui",
+     124451
+    ]
+   ],
+   "children_ids": [
+    1543
+   ]
+  },
+  {
+   "id": 1543,
+   "name": "LLM/Agent (Python)",
+   "depth": 4,
+   "parent_id": 1542,
+   "is_leaf": false,
+   "size": 218,
+   "avg_stars": 1804,
+   "top_langs": [
+    [
+     "Python",
+     4690
+    ],
+    [
+     "Jupyter Notebook",
+     921
+    ],
+    [
+     "C++",
+     99
+    ]
+   ],
+   "top_repos": [
+    [
+     "AUTOMATIC1111/stable-diffusion-webui",
+     160710
+    ],
+    [
+     "langchain-ai/langchain",
+     127058
+    ],
+    [
+     "open-webui/open-webui",
+     124451
+    ]
+   ],
+   "children_ids": [
+    1621
+   ]
+  },
+  {
+   "id": 1621,
+   "name": "LLM/Agent (Python)",
+   "depth": 5,
+   "parent_id": 1543,
+   "is_leaf": false,
+   "size": 218,
+   "avg_stars": 2121,
+   "top_langs": [
+    [
+     "Python",
+     1636
+    ],
+    [
+     "Jupyter Notebook",
+     202
+    ],
+    [
+     "C++",
+     88
+    ]
+   ],
+   "top_repos": [
+    [
+     "deepseek-ai/DeepSeek-V3",
+     101605
+    ],
+    [
+     "ggml-org/llama.cpp",
+     95476
+    ],
+    [
+     "rasbt/LLMs-from-scratch",
+     85583
+    ]
+   ],
+   "children_ids": [
+    1647
+   ]
+  },
+  {
+   "id": 1647,
+   "name": "LLM/Agent (Python)",
+   "depth": 6,
+   "parent_id": 1621,
+   "is_leaf": false,
+   "size": 218,
+   "avg_stars": 2159,
+   "top_langs": [
+    [
+     "Python",
+     760
+    ],
+    [
+     "Jupyter Notebook",
+     123
+    ],
+    [
+     "C++",
+     27
+    ]
+   ],
+   "top_repos": [
+    [
+     "ggml-org/llama.cpp",
+     95476
+    ],
+    [
+     "hiyouga/LlamaFactory",
+     67406
+    ],
+    [
+     "meta-llama/llama",
+     59157
+    ]
+   ],
+   "children_ids": [
+    1648
+   ]
+  },
+  {
+   "id": 1648,
+   "name": "LLM/Agent (Python)",
+   "depth": 7,
+   "parent_id": 1647,
+   "is_leaf": false,
+   "size": 218,
+   "avg_stars": 1771,
+   "top_langs": [
+    [
+     "Python",
+     463
+    ],
+    [
+     "Jupyter Notebook",
+     36
+    ],
+    [
+     "C++",
+     5
+    ]
+   ],
+   "top_repos": [
+    [
+     "zai-org/ChatGLM-6B",
+     41233
+    ],
+    [
+     "jingyaogong/minimind",
+     39606
+    ],
+    [
+     "lm-sys/FastChat",
+     39411
+    ]
+   ],
+   "children_ids": [
+    1649
+   ]
+  },
+  {
+   "id": 1649,
+   "name": "LLM/Agent (Python)",
+   "depth": 8,
+   "parent_id": 1648,
+   "is_leaf": false,
+   "size": 218,
+   "avg_stars": 1355,
+   "top_langs": [
+    [
+     "Python",
+     293
+    ],
+    [
+     "Jupyter Notebook",
+     17
+    ],
+    [
+     "Markdown",
+     1
+    ]
+   ],
+   "top_repos": [
+    [
+     "haotian-liu/LLaVA",
+     24469
+    ],
+    [
+     "OpenBMB/MiniCPM-o",
+     23832
+    ],
+    [
+     "QwenLM/Qwen3-VL",
+     18311
+    ]
+   ],
+   "children_ids": [
+    1650
+   ]
+  },
+  {
+   "id": 1650,
+   "name": "Computer Vision (Python)",
+   "depth": 9,
+   "parent_id": 1649,
+   "is_leaf": false,
+   "size": 218,
+   "avg_stars": 1257,
+   "top_langs": [
+    [
+     "Python",
+     205
+    ],
+    [
+     "Jupyter Notebook",
+     12
+    ],
+    [
+     "Markdown",
+     1
+    ]
+   ],
+   "top_repos": [
+    [
+     "haotian-liu/LLaVA",
+     24469
+    ],
+    [
+     "OpenBMB/MiniCPM-o",
+     23832
+    ],
+    [
+     "QwenLM/Qwen3-VL",
+     18311
+    ]
+   ],
+   "children_ids": [
+    1651,
+    1652
+   ]
+  },
+  {
+   "id": 1651,
+   "name": "Computer Vision (Python)",
+   "depth": 10,
+   "parent_id": 1650,
+   "is_leaf": true,
+   "size": 109,
+   "avg_stars": 1012,
+   "top_langs": [
+    [
+     "Python",
+     104
+    ],
+    [
+     "Jupyter Notebook",
+     5
+    ]
+   ],
+   "top_repos": [
+    [
+     "haotian-liu/LLaVA",
+     24469
+    ],
+    [
+     "apple/ml-ferret",
+     8674
+    ],
+    [
+     "Fanghua-Yu/SUPIR",
+     5453
+    ]
+   ],
+   "children_ids": []
+  },
+  {
+   "id": 1652,
+   "name": "Computer Vision (Python)",
+   "depth": 10,
+   "parent_id": 1650,
+   "is_leaf": true,
+   "size": 109,
+   "avg_stars": 1501,
+   "top_langs": [
+    [
+     "Python",
+     101
+    ],
+    [
+     "Jupyter Notebook",
+     7
+    ],
+    [
+     "Markdown",
+     1
+    ]
+   ],
+   "top_repos": [
+    [
+     "OpenBMB/MiniCPM-o",
+     23832
+    ],
+    [
+     "QwenLM/Qwen3-VL",
+     18311
+    ],
+    [
+     "LargeWorldModel/LWM",
+     7396
+    ]
+   ],
+   "children_ids": []
+  }
+ ]
+}
