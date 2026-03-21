@@ -54,27 +54,20 @@ export async function getMe() {
 export interface SearchResult {
   id: number;
   score: number;
+  rrf_score: number;
   full_name: string;
   stars: number;
   language: string;
   description: string;
   html_url: string;
   tree_text: string;
+  wiki_text: string;
 }
 
 export interface SearchResponse {
   query: string;
   hypothetical_tree: string;
   results: SearchResult[];
-}
-
-export async function searchRepos(query: string, topK = 15): Promise<SearchResponse> {
-  const res = await fetchWithAutoAuth(`${BASE}/api/search`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ query, top_k: topK }),
-  });
-  return handleRes(res);
 }
 
 /* ── Galaxy ── */

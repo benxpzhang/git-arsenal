@@ -5,17 +5,14 @@ POST /api/search  - multi-recall search (requires auth + quota)
 GET  /api/repo/...  - look up a single repo by name
 
 Pipeline:
-  Agent provides keywords + hypothetical_tree → backend embeds + recalls + RRF.
-  If not provided, ONE LLM fallback call generates both.
-
-  1. Resolve keywords + tree (Agent-provided or single LLM fallback)
-  2. Parallel: embed tree + embed query
-  3. Multi-recall + RRF merge
+  Agent provides keywords + hypothetical_tree directly.
+  1. Embed tree + embed query (parallel)
+  2. Multi-recall (keyword + tree vec + wiki vec) + RRF merge
 """
 import asyncio
 import traceback
 import time
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from models.schemas import SearchRequest, SearchResponse, RepoResult
 from services.embedding import get_embedding, EmbeddingError
 from services.search import multi_recall, get_repo_by_name
@@ -35,20 +32,12 @@ async def search(
     t0 = time.time()
 
     keywords = req.keywords or []
-    hypo_tree = req.hypothetical_tree or ""
+    hypo_tree = req.hypothetical_tree or req.query
 
-    if not keywords or not hypo_tree:
-        from services.query_parser import parse_query
-        fb_kw, fb_tree = await asyncio.to_thread(parse_query, req.query)
-        if not keywords:
-            keywords = fb_kw
-        if not hypo_tree:
-            hypo_tree = fb_tree
+    if not keywords:
+        print(f"  Warning: no keywords provided for query: {req.query[:60]}")
 
-    t1 = time.time()
-    agent_provided = bool(req.keywords and req.hypothetical_tree)
-    print(f"  Phase 1 (params): {t1 - t0:.2f}s | agent={agent_provided} | kw={len(keywords)}")
-    print(f"  Keywords: {keywords}")
+    print(f"  Keywords({len(keywords)}): {keywords}")
 
     # Parallel: embed tree + embed query
     async def embed_tree():
@@ -69,8 +58,8 @@ async def search(
             return None
 
     tree_vector, wiki_vector = await asyncio.gather(embed_tree(), embed_query())
-    t2 = time.time()
-    print(f"  Phase 2 (embed): {t2 - t1:.2f}s")
+    t1 = time.time()
+    print(f"  Embed: {t1 - t0:.2f}s")
 
     if tree_vector is None:
         return SearchResponse(query=req.query, hypothetical_tree=hypo_tree, results=[])
@@ -90,9 +79,9 @@ async def search(
         print(f"  Recall failed: {e}")
         traceback.print_exc()
         return SearchResponse(query=req.query, hypothetical_tree=hypo_tree, results=[])
-    t3 = time.time()
-    print(f"  Phase 3 (recall+RRF): {t3 - t2:.2f}s, {len(candidates)} results")
-    print(f"  Total: {t3 - t0:.2f}s")
+    t2 = time.time()
+    print(f"  Recall+RRF: {t2 - t1:.2f}s, {len(candidates)} results")
+    print(f"  Total: {t2 - t0:.2f}s")
 
     await increment_usage(user_id)
 
@@ -108,6 +97,5 @@ async def repo_detail(owner: str, name: str):
     full_name = f"{owner}/{name}"
     result = await get_repo_by_name(full_name)
     if not result:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail=f"Repo '{full_name}' not found")
     return result
