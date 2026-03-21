@@ -173,9 +173,8 @@ export async function addMessage(convId: string, role: string, content: string) 
 }
 
 export async function deleteConversation(id: string) {
-  const res = await fetch(`${BASE}/api/conversations/${id}`, {
+  const res = await fetchWithAutoAuth(`${BASE}/api/conversations/${id}`, {
     method: "DELETE",
-    headers: authHeaders(),
   });
   return handleRes(res);
 }
