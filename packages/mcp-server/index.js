@@ -83,7 +83,7 @@ server.tool(
       "with domain-specific filenames. Embedded and compared against real repo trees via vector similarity."
     ),
     repo_summary: z.string().optional().describe(
-      "A 2-4 sentence project overview (100-200 words) describing what the ideal repo does, " +
+      "A 2-4 sentence project overview (~50-150 words) describing what the ideal repo does, " +
       "its core features, and tech stack — as if writing the first paragraph of its wiki page. " +
       "Embedded and compared against real repo wiki summaries via vector similarity."
     ),

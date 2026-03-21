@@ -47,11 +47,13 @@ export async function POST(req: Request) {
     },
   });
 
-  const mcpClient = await createMCPClient({ transport });
+  let mcpClient: Awaited<ReturnType<typeof createMCPClient>> | null = null;
 
   try {
+    mcpClient = await createMCPClient({ transport });
     const tools = await mcpClient.tools();
 
+    const client = mcpClient;
     const result = streamText({
       model: provider(LLM_MODEL),
       system: SEARCH_MODE_SYSTEM_PROMPT,
@@ -60,11 +62,11 @@ export async function POST(req: Request) {
       stopWhen: stepCountIs(3),
       onFinish: async ({ steps, text }) => {
         console.log(`[chat] done: ${steps.length} steps, ${text.length} chars`);
-        await mcpClient.close();
+        await client.close();
       },
       onError: async (error) => {
         console.error("[chat] stream error:", error);
-        await mcpClient.close();
+        await client.close();
       },
       onStepFinish: ({ stepType, toolCalls }) => {
         if (toolCalls?.length) {
@@ -76,7 +78,7 @@ export async function POST(req: Request) {
     return result.toUIMessageStreamResponse();
   } catch (error) {
     console.error("[chat] route error:", error);
-    await mcpClient.close();
+    await mcpClient?.close();
     const msg = error instanceof Error ? error.message : "Internal error";
     return new Response(JSON.stringify({ error: msg }), {
       status: 500,

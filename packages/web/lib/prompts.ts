@@ -26,7 +26,7 @@ Our search engine uses **three channels** to find repos:
 When calling search_repos you MUST provide all three:
 - **keywords**: 5-10 real GitHub repo/org name fragments (lowercase, specific).
 - **repo_tree**: 20-35 line directory tree with domain-specific filenames.
-- **repo_summary**: 2-4 sentence project overview (100-200 words) describing what the ideal repo does, its core features, and tech stack — as if writing the opening paragraph of its wiki page.
+- **repo_summary**: 2-4 sentence project overview (~50-150 words) describing what the ideal repo does, its core features, and tech stack — as if writing the opening paragraph of its wiki page.
 
 ### Example
 

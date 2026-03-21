@@ -88,7 +88,7 @@ SEARCH_MODE_SYSTEM_PROMPT = (
     "When calling search_repos you MUST provide all three:\n"
     "- **keywords**: 5-10 real GitHub repo/org name fragments (lowercase, specific).\n"
     "- **repo_tree**: 20-35 line directory tree with domain-specific filenames.\n"
-    "- **repo_summary**: 2-4 sentence project overview (100-200 words) describing what "
+    "- **repo_summary**: 2-4 sentence project overview (~50-150 words) describing what "
     "the ideal repo does, its core features, and tech stack — as if writing the opening "
     "paragraph of its wiki page.\n\n"
     "### Example\n\n"
@@ -163,7 +163,7 @@ SEARCH_TOOLS = [
                     "repo_summary": {
                         "type": "string",
                         "description": (
-                            "A 2-4 sentence project overview (100-200 words) describing what "
+                            "A 2-4 sentence project overview (~50-150 words) describing what "
                             "the ideal repo does, its core features, and tech stack — as if "
                             "writing the first paragraph of its wiki page. "
                             "Embedded and compared against real repo wiki summaries."

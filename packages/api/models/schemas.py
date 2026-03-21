@@ -7,26 +7,31 @@ from pydantic import BaseModel, Field
 class SearchRequest(BaseModel):
     query: str = Field(
         ...,
+        min_length=2,
+        max_length=1000,
         description="User's natural language query describing the kind of project they are looking for.",
     )
     keywords: list[str] | None = Field(
         None,
+        max_length=20,
         description="5-10 repo or org name fragments for substring matching against full_name. "
         "Use short, specific names (not generic words). "
         "e.g. query='RAG platform' → ['dify','langchain','ragflow','llama-index','quivr','haystack'].",
     )
     repo_tree: str | None = Field(
         None,
+        max_length=5000,
         description="A hypothetical repo directory tree (max-depth 4, 20-35 lines) for vector similarity "
         "matching against real repo trees. Use ├──/└──/│ connectors with domain-specific filenames.",
     )
     repo_summary: str | None = Field(
         None,
+        max_length=2000,
         description="A 2-4 sentence project overview describing what the ideal repo does, "
         "its core features, and tech stack. Embedded and matched against real repo wiki summaries.",
     )
     top_k: int = Field(15, ge=1, le=50, description="Number of results to return")
-    language: str | None = Field(None, description="Filter by programming language")
+    language: str | None = Field(None, max_length=50, description="Filter by programming language")
     min_stars: int | None = Field(None, ge=0, description="Filter by minimum star count")
 
 
