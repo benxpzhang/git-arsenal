@@ -3,7 +3,7 @@
 3-channel e2e search benchmark: keyword + tree + wiki.
 Uses glm-4.7, concurrent LLM + embed calls with semaphore control.
 """
-import sys, time, asyncio, json, re, os
+import sys, time, asyncio, json, re, os, random
 from pathlib import Path
 from openai import OpenAI
 
@@ -71,6 +71,211 @@ async def embed(text: str) -> list[float] | None:
             return await asyncio.to_thread(get_embedding, text)
         except Exception:
             return None
+
+
+# ── Trajectory recording ──────────────────────────────────────────
+
+SEARCH_MODE_SYSTEM_PROMPT = (
+    "You are **Git Arsenal Search Assistant** — an AI that helps users discover "
+    "the best open-source GitHub repositories from a curated index of 150 000+ projects.\n\n"
+    "## How Search Works\n\n"
+    "Our search engine matches repositories by comparing directory tree structures via "
+    "vector similarity (not keywords).\n"
+    "When calling search_repos you MUST provide a **hypothetical_tree** — imagine what the "
+    "ideal repo's file structure would look like. This tree is embedded and compared against "
+    "150 000+ real repo trees stored in Qdrant.\n\n"
+    "A good hypothetical tree is 20-35 lines, uses realistic filenames that capture the domain.\n\n"
+    "### Example\n\n"
+    "For \"Rust web frameworks\", you would generate:\n\n"
+    "rust-web-framework | 20 dirs | 55 files\n"
+    "├── src/\n│   ├── routing/\n│   │   ├── mod.rs\n│   │   ├── router.rs\n│   │   └── handler.rs\n"
+    "│   ├── middleware/\n│   │   ├── auth.rs\n│   │   ├── cors.rs\n│   │   └── logger.rs\n"
+    "│   ├── extractors/\n│   │   ├── json.rs\n│   │   └── query.rs\n"
+    "│   ├── response/\n│   │   └── mod.rs\n│   ├── server.rs\n│   └── lib.rs\n"
+    "├── examples/\n│   ├── hello_world.rs\n│   └── rest_api.rs\n"
+    "├── tests/\n│   └── integration_test.rs\n├── Cargo.toml\n├── LICENSE\n└── README.md\n\n"
+    "## Strategy\n\n"
+    "1. **Understand first** — if the user's query is vague, ask one clarifying question before searching.\n"
+    "2. **Exactly ONE search** — call search_repos ONCE with a well-crafted hypothetical_tree "
+    "and top_k 15. NEVER search more than once per user message.\n"
+    "3. **Skip get_repo_detail** unless the user explicitly asks to dive into a specific repository.\n"
+    "4. **Always present results** — after receiving search results, IMMEDIATELY present them. "
+    "Do NOT say \"let me search again\". Work with what you have.\n\n"
+    "## Response Format\n\n"
+    "After receiving tool results, present the top 5-10 as a ranked table:\n\n"
+    "| # | Repository | Stars | Language | Why it matches |\n"
+    "|---|-----------|-------|----------|----------------|\n"
+    "| 1 | [owner/repo](url) | ⭐ 45.2k | Python | One-sentence reason |\n\n"
+    "End with a short recommendation (1-2 sentences) and, if relevant, a follow-up question.\n\n"
+    "## Critical Rules\n\n"
+    "- **ONE search only** — never call search_repos more than once.\n"
+    "- Always **search before answering** — never guess from memory.\n"
+    "- Be **concise** — users want quick answers, not essays.\n"
+    "- If results don't match perfectly, present the best matches and suggest refining.\n"
+    "- For follow-up questions, leverage prior search context instead of re-searching.\n"
+    "- Casual conversation (greetings, thanks, off-topic) — reply naturally, no tools.\n"
+    "- After receiving tool results, you MUST generate a text response with the table."
+)
+
+SEARCH_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "search_repos",
+            "description": (
+                "Search GitHub open-source repositories by natural language description. "
+                "Returns matching repos with stars, language, description, and directory tree."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Natural language description of the project you're looking for",
+                    },
+                    "keywords": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": (
+                            "5-10 real GitHub repo or org name fragments for keyword matching "
+                            "(lowercase, specific names). e.g. ['dify','langchain','ragflow']"
+                        ),
+                    },
+                    "hypothetical_tree": {
+                        "type": "string",
+                        "description": (
+                            "A hypothetical repo directory tree (20-35 lines, max-depth 4) "
+                            "using tree connectors with domain-specific filenames. "
+                            "Embedded and compared against real repo trees via vector similarity."
+                        ),
+                    },
+                    "top_k": {
+                        "type": "integer",
+                        "description": "Number of results to return (1-50, default 10)",
+                    },
+                    "language": {
+                        "type": "string",
+                        "description": "Filter by programming language (e.g. 'Python', 'TypeScript')",
+                    },
+                    "min_stars": {
+                        "type": "integer",
+                        "description": "Minimum star count filter",
+                    },
+                },
+                "required": ["query"],
+            },
+        },
+    }
+]
+
+
+def _format_tool_result(results: list[dict]) -> str:
+    """Format search results the same way the MCP server does."""
+    parts = []
+    for i, r in enumerate(results):
+        lines = [f"## {i + 1}. {r['full_name']} ⭐ {r['stars']}"]
+        if r.get("description"):
+            lines.append(f"> {r['description']}")
+        lines.append(f"- Language: {r.get('language') or 'N/A'}")
+        lines.append(f"- URL: {r.get('html_url', '')}")
+        score = r.get("rrf_score", r.get("score", 0))
+        lines.append(f"- Match Score: {score * 100:.1f}%")
+        if r.get("tree_text"):
+            lines.extend(["", "```", r["tree_text"], "```"])
+        parts.append("\n".join(lines))
+    return "\n\n---\n\n".join(parts)
+
+
+def _msg_to_serializable(msg) -> dict:
+    """Convert an OpenAI message object to a plain dict for JSON."""
+    d: dict = {"role": msg.role}
+    if msg.content:
+        d["content"] = msg.content
+    if getattr(msg, "tool_calls", None):
+        d["tool_calls"] = [
+            {
+                "id": tc.id,
+                "type": "function",
+                "function": {
+                    "name": tc.function.name,
+                    "arguments": tc.function.arguments,
+                },
+            }
+            for tc in msg.tool_calls
+        ]
+    return d
+
+
+async def _llm_call_with_retry(messages, tools=None, max_retries=4):
+    """LLM call with exponential backoff on rate limit."""
+    for attempt in range(max_retries):
+        try:
+            async with llm_sem:
+                kwargs = dict(model=LLM_MODEL, max_tokens=4096, temperature=0.3,
+                              timeout=120, messages=messages)
+                if tools:
+                    kwargs["tools"] = tools
+                return await asyncio.to_thread(
+                    lambda: llm_client.chat.completions.create(**kwargs)
+                )
+        except Exception as e:
+            if "RateLimit" in type(e).__name__ or "429" in str(e):
+                wait = 5 * (attempt + 1)
+                print(f"    Rate limited, retry in {wait}s...")
+                await asyncio.sleep(wait)
+                continue
+            raise
+    return None
+
+
+async def record_trajectory(tc: dict, merged_results: list[dict]) -> dict | None:
+    """Full tool-calling flow: system→user→tool_call→tool_result→assistant."""
+    query = tc["query"]
+    messages = [
+        {"role": "system", "content": SEARCH_MODE_SYSTEM_PROMPT},
+        {"role": "user", "content": query},
+    ]
+
+    try:
+        resp1 = await _llm_call_with_retry(messages, tools=SEARCH_TOOLS)
+        if resp1 is None:
+            print(f"    Trajectory step-1: exhausted retries")
+            return None
+    except Exception as e:
+        print(f"    Trajectory step-1 failed: {type(e).__name__}: {e}")
+        return None
+
+    msg1 = resp1.choices[0].message
+
+    if not getattr(msg1, "tool_calls", None):
+        messages.append({"role": "assistant", "content": msg1.content or ""})
+        return {"query": query, "expect": tc["expect"], "messages": messages}
+
+    tool_call = msg1.tool_calls[0]
+    messages.append(_msg_to_serializable(msg1))
+
+    tool_result_text = _format_tool_result(merged_results[:10])
+    messages.append({
+        "role": "tool",
+        "tool_call_id": tool_call.id,
+        "content": tool_result_text,
+    })
+
+    await asyncio.sleep(3)
+
+    try:
+        resp2 = await _llm_call_with_retry(messages)
+        if resp2 is None:
+            print(f"    Trajectory step-2: exhausted retries")
+            messages.append({"role": "assistant", "content": "[generation failed: rate limit]"})
+            return {"query": query, "expect": tc["expect"], "messages": messages}
+    except Exception as e:
+        print(f"    Trajectory step-2 failed: {type(e).__name__}: {e}")
+        messages.append({"role": "assistant", "content": f"[generation failed: {e}]"})
+        return {"query": query, "expect": tc["expect"], "messages": messages}
+
+    messages.append({"role": "assistant", "content": resp2.choices[0].message.content or ""})
+    return {"query": query, "expect": tc["expect"], "messages": messages}
 
 
 TESTS = [
@@ -144,7 +349,7 @@ async def run_one(tc: dict) -> dict:
         return {
             "query": q, "expects": expects, "keywords": keywords,
             "kw_hits": [], "tree_hits": [], "wiki_hits": [], "top10": [],
-            "elapsed": time.time() - t0,
+            "merged_full": [], "elapsed": time.time() - t0,
         }
 
     tasks = [
@@ -177,23 +382,29 @@ async def run_one(tc: dict) -> dict:
     return {
         "query": q, "expects": expects, "keywords": keywords,
         "kw_hits": kw_hits, "tree_hits": tree_hits, "wiki_hits": wiki_hits,
-        "top10": top10, "elapsed": elapsed,
+        "top10": top10, "merged_full": merged, "elapsed": elapsed,
     }
 
 
 async def main():
-    output_file = Path(__file__).resolve().parent / "e2e_misses_glm47.jsonl"
-    if output_file.exists():
-        output_file.unlink()
+    traj_file = Path(__file__).resolve().parent / "e2e_trajectories_glm47.jsonl"
+    if traj_file.exists():
+        traj_file.unlink()
 
     print("Initializing Qdrant...")
     init_qdrant()
-    print(f"\nRunning {len(TESTS)} tests (model={LLM_MODEL}, sequential)\n")
+
+    sample_size = 10
+    sampled = sorted(random.sample(range(len(TESTS)), sample_size))
+    sampled_tests = [TESTS[i] for i in sampled]
+    print(f"\nSampled {sample_size} tests (indices {sampled}), model={LLM_MODEL}\n")
 
     t0 = time.time()
     results = []
-    n = len(TESTS)
-    for i, tc in enumerate(TESTS):
+    n = len(sampled_tests)
+
+    for i, tc in enumerate(sampled_tests):
+        # ── Phase 1: search benchmark ──
         r = await run_one(tc)
         results.append(r)
         expects = tc["expect"]
@@ -206,55 +417,34 @@ async def main():
         for idx, item in enumerate(r["top10"], 1):
             print(f"    {idx:2d}. {item['full_name']:50s} {item['stars']:>7,}★")
 
-        if status != "PASS":
-            missed = [e for e in expects if e not in union_hits]
-            rec = {
-                "status": status, "query": tc["query"], "expect": expects,
-                "missed": missed, "keywords": r["keywords"],
-                "kw_hits": r["kw_hits"], "tree_hits": r["tree_hits"], "wiki_hits": r["wiki_hits"],
-                "top10": r["top10"], "elapsed_sec": round(r["elapsed"], 2),
-            }
-            with output_file.open("a", encoding="utf-8") as f:
-                f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+        # ── Phase 2: record trajectory ──
+        await asyncio.sleep(5)
+        merged = r.get("merged_full", [])
+        print(f"    Recording trajectory...")
+        traj = await record_trajectory(tc, merged)
+        if traj:
+            with traj_file.open("a", encoding="utf-8") as f:
+                f.write(json.dumps(traj, ensure_ascii=False) + "\n")
+            n_msgs = len(traj["messages"])
+            has_tool = any(m.get("tool_calls") for m in traj["messages"])
+            print(f"    Trajectory OK: {n_msgs} messages, tool_call={'yes' if has_tool else 'no'}")
+        else:
+            print(f"    Trajectory SKIP (LLM failed)")
 
-        await asyncio.sleep(2)
+        await asyncio.sleep(5)
+
     wall_time = time.time() - t0
 
-    total_exp = 0
-    kw_total = 0; tree_total = 0; wiki_total = 0
-    kw_only = 0; tree_only = 0; wiki_only = 0; neither = 0
-    any_hit = 0
-
-    for r in results:
-        for e in r["expects"]:
-            total_exp += 1
-            in_kw = e in r["kw_hits"]
-            in_tree = e in r["tree_hits"]
-            in_wiki = e in r["wiki_hits"]
-            kw_total += int(in_kw)
-            tree_total += int(in_tree)
-            wiki_total += int(in_wiki)
-            hit = in_kw or in_tree or in_wiki
-            any_hit += int(hit)
-            if not hit:
-                neither += 1
-            channels = []
-            if in_kw: channels.append("KW")
-            if in_tree: channels.append("TR")
-            if in_wiki: channels.append("WK")
-            tag = "+".join(channels) if channels else "MISS"
-            print(f"  [{tag:10s}] {e:50s}")
-
+    traj_count = sum(1 for _ in traj_file.open() if _.strip()) if traj_file.exists() else 0
     print(f"\n{'='*70}")
     print(f"Model: {LLM_MODEL} | Wall time: {wall_time:.0f}s | Queries: {n}")
     print(f"{'='*70}")
-    print(f"  Total expected:     {total_exp}")
-    print(f"  Keyword hit:        {kw_total}/{total_exp} ({kw_total/total_exp*100:.0f}%)")
-    print(f"  Tree hit:           {tree_total}/{total_exp} ({tree_total/total_exp*100:.0f}%)")
-    print(f"  Wiki hit:           {wiki_total}/{total_exp} ({wiki_total/total_exp*100:.0f}%)")
-    print(f"  Any hit (recall):   {any_hit}/{total_exp} ({any_hit/total_exp*100:.0f}%)")
-    print(f"  Missed:             {neither}")
-    print(f"  Miss/PART details:  {output_file}")
+
+    total_exp = sum(len(r["expects"]) for r in results)
+    any_hit = sum(1 for r in results for e in r["expects"]
+                  if e in r["kw_hits"] or e in r["tree_hits"] or e in r["wiki_hits"])
+    print(f"  Any hit (recall): {any_hit}/{total_exp} ({any_hit/total_exp*100:.0f}%)")
+    print(f"  Trajectories:     {traj_count}/{n} saved → {traj_file}")
 
 
 if __name__ == "__main__":
