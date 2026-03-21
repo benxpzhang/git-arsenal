@@ -84,19 +84,11 @@ def rrf_merge(result_lists: list[list[dict]], top_k: int = 30, k: int = 60) -> l
     return merged
 
 
-async def recall_by_name(
+def _recall_by_name_sync(
     keywords: list[str],
-    limit: int = 50,
-    query_filter: models.Filter | None = None,
+    limit: int,
+    query_filter: models.Filter | None,
 ) -> list[dict]:
-    """Channel 1: Keyword recall via full_name text index, ordered by stars desc.
-
-    Uses Qdrant's order_by to directly fetch the highest-star matches per keyword,
-    avoiding the default point-ID ordering that misses popular high-ID repos.
-    """
-    if not keywords:
-        return []
-
     client = get_client()
     per_kw_limit = max(limit // len(keywords) * 2, 20)
     seen_ids: set[int] = set()
@@ -130,23 +122,38 @@ async def recall_by_name(
     return all_results[:limit]
 
 
-async def recall_by_tree(
-    tree_vector: list[float],
+async def recall_by_name(
+    keywords: list[str],
     limit: int = 50,
     query_filter: models.Filter | None = None,
 ) -> list[dict]:
-    """Channel 2: Tree vector similarity search."""
+    """Channel 1: Keyword recall via full_name text index, ordered by stars desc."""
+    if not keywords:
+        return []
+    return await asyncio.to_thread(_recall_by_name_sync, keywords, limit, query_filter)
+
+
+def _query_points_sync(vector: list[float], using: str, limit: int, query_filter) -> list[dict]:
     client = get_client()
     response = client.query_points(
         collection_name=QDRANT_COLLECTION,
-        query=tree_vector,
-        using="tree",
+        query=vector,
+        using=using,
         limit=limit,
         query_filter=query_filter,
         with_payload=True,
         with_vectors=False,
     )
     return [_hit_to_dict(hit) for hit in response.points]
+
+
+async def recall_by_tree(
+    tree_vector: list[float],
+    limit: int = 50,
+    query_filter: models.Filter | None = None,
+) -> list[dict]:
+    """Channel 2: Tree vector similarity search."""
+    return await asyncio.to_thread(_query_points_sync, tree_vector, "tree", limit, query_filter)
 
 
 async def recall_by_wiki(
@@ -157,17 +164,7 @@ async def recall_by_wiki(
     """Channel 3: Wiki vector similarity search."""
     if not _has_wiki_vector:
         return []
-    client = get_client()
-    response = client.query_points(
-        collection_name=QDRANT_COLLECTION,
-        query=wiki_vector,
-        using="wiki",
-        limit=limit,
-        query_filter=query_filter,
-        with_payload=True,
-        with_vectors=False,
-    )
-    return [_hit_to_dict(hit) for hit in response.points]
+    return await asyncio.to_thread(_query_points_sync, wiki_vector, "wiki", limit, query_filter)
 
 
 async def multi_recall(
@@ -243,8 +240,7 @@ async def search_repos(
     )
 
 
-async def get_repo_by_name(full_name: str) -> dict | None:
-    """Look up a single repo by full_name (e.g. 'facebook/react')."""
+def _get_repo_by_name_sync(full_name: str) -> dict | None:
     client = get_client()
     results = client.scroll(
         collection_name=QDRANT_COLLECTION,
@@ -262,5 +258,9 @@ async def get_repo_by_name(full_name: str) -> dict | None:
     points = results[0]
     if not points:
         return None
-    hit = points[0]
-    return _hit_to_dict(hit)
+    return _hit_to_dict(points[0])
+
+
+async def get_repo_by_name(full_name: str) -> dict | None:
+    """Look up a single repo by full_name (e.g. 'facebook/react')."""
+    return await asyncio.to_thread(_get_repo_by_name_sync, full_name)
