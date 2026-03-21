@@ -66,7 +66,7 @@ export interface SearchResult {
 
 export interface SearchResponse {
   query: string;
-  hypothetical_tree: string;
+  repo_tree: string;
   results: SearchResult[];
 }
 

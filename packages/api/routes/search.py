@@ -5,7 +5,7 @@ POST /api/search  - multi-recall search (requires auth + quota)
 GET  /api/repo/...  - look up a single repo by name
 
 Pipeline:
-  Agent provides keywords + hypothetical_tree directly.
+  Agent provides keywords + repo_tree + repo_summary directly.
   1. Embed tree + embed query (parallel)
   2. Multi-recall (keyword + tree vec + wiki vec) + RRF merge
 """
@@ -32,8 +32,8 @@ async def search(
     t0 = time.time()
 
     keywords = req.keywords or []
-    hypo_tree = req.hypothetical_tree or req.query
-    hypo_wiki = req.hypothetical_wiki or req.query
+    hypo_tree = req.repo_tree or req.query
+    hypo_wiki = req.repo_summary or req.query
 
     if not keywords:
         print(f"  Warning: no keywords provided for query: {req.query[:60]}")
@@ -62,7 +62,7 @@ async def search(
     print(f"  Embed: {t1 - t0:.2f}s")
 
     if tree_vector is None:
-        return SearchResponse(query=req.query, hypothetical_tree=hypo_tree, results=[])
+        return SearchResponse(query=req.query, repo_tree=hypo_tree, results=[])
 
     # Multi-recall + RRF
     try:
@@ -78,7 +78,7 @@ async def search(
     except Exception as e:
         print(f"  Recall failed: {e}")
         traceback.print_exc()
-        return SearchResponse(query=req.query, hypothetical_tree=hypo_tree, results=[])
+        return SearchResponse(query=req.query, repo_tree=hypo_tree, results=[])
     t2 = time.time()
     print(f"  Recall+RRF: {t2 - t1:.2f}s, {len(candidates)} results")
     print(f"  Total: {t2 - t0:.2f}s")
@@ -87,7 +87,7 @@ async def search(
 
     return SearchResponse(
         query=req.query,
-        hypothetical_tree=hypo_tree,
+        repo_tree=hypo_tree,
         results=[RepoResult(**r) for r in candidates],
     )
 

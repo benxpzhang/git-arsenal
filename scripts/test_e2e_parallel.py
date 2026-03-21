@@ -81,23 +81,23 @@ SEARCH_MODE_SYSTEM_PROMPT = (
     "## How Search Works\n\n"
     "Our search engine uses **three channels** to find repos:\n"
     "1. **Keyword matching** — your `keywords` are matched against real GitHub repo names.\n"
-    "2. **Tree similarity** — your `hypothetical_tree` is embedded and compared against "
+    "2. **Tree similarity** — your `repo_tree` is embedded and compared against "
     "150 000+ real repo directory trees.\n"
-    "3. **Wiki similarity** — your `hypothetical_wiki` is embedded and compared against "
+    "3. **Wiki similarity** — your `repo_summary` is embedded and compared against "
     "real repo wiki summaries (DeepWiki overviews).\n\n"
     "When calling search_repos you MUST provide all three:\n"
     "- **keywords**: 5-10 real GitHub repo/org name fragments (lowercase, specific).\n"
-    "- **hypothetical_tree**: 20-35 line directory tree with domain-specific filenames.\n"
-    "- **hypothetical_wiki**: 2-4 sentence project overview (100-200 words) describing what "
+    "- **repo_tree**: 20-35 line directory tree with domain-specific filenames.\n"
+    "- **repo_summary**: 2-4 sentence project overview (100-200 words) describing what "
     "the ideal repo does, its core features, and tech stack — as if writing the opening "
     "paragraph of its wiki page.\n\n"
     "### Example\n\n"
     "For \"Rust web frameworks\":\n\n"
-    "**hypothetical_wiki**: \"A high-performance asynchronous web framework written in Rust. "
+    "**repo_summary**: \"A high-performance asynchronous web framework written in Rust. "
     "It provides a routing system, middleware pipeline, JSON/form extractors, and WebSocket "
     "support. Built on top of Tokio and Hyper, it emphasizes type safety, minimal boilerplate, "
     "and compile-time route validation.\"\n\n"
-    "**hypothetical_tree**:\n"
+    "**repo_tree**:\n"
     "rust-web-framework | 20 dirs | 55 files\n"
     "├── src/\n│   ├── routing/\n│   │   ├── mod.rs\n│   │   ├── router.rs\n│   │   └── handler.rs\n"
     "│   ├── middleware/\n│   │   ├── auth.rs\n│   │   ├── cors.rs\n│   │   └── logger.rs\n"
@@ -107,8 +107,8 @@ SEARCH_MODE_SYSTEM_PROMPT = (
     "├── tests/\n│   └── integration_test.rs\n├── Cargo.toml\n├── LICENSE\n└── README.md\n\n"
     "## Strategy\n\n"
     "1. **Understand first** — if the user's query is vague, ask one clarifying question before searching.\n"
-    "2. **Exactly ONE search** — call search_repos ONCE with well-crafted hypothetical_tree, "
-    "hypothetical_wiki, keywords, and top_k 15. NEVER search more than once per user message.\n"
+    "2. **Exactly ONE search** — call search_repos ONCE with well-crafted repo_tree, "
+    "repo_summary, keywords, and top_k 15. NEVER search more than once per user message.\n"
     "3. **Skip get_repo_detail** unless the user explicitly asks to dive into a specific repository.\n"
     "4. **Always present results** — after receiving search results, IMMEDIATELY present them. "
     "Do NOT say \"let me search again\". Work with what you have.\n\n"
@@ -152,7 +152,7 @@ SEARCH_TOOLS = [
                             "(lowercase, specific names). e.g. ['dify','langchain','ragflow']"
                         ),
                     },
-                    "hypothetical_tree": {
+                    "repo_tree": {
                         "type": "string",
                         "description": (
                             "A hypothetical repo directory tree (20-35 lines, max-depth 4) "
@@ -160,7 +160,7 @@ SEARCH_TOOLS = [
                             "Embedded and compared against real repo trees via vector similarity."
                         ),
                     },
-                    "hypothetical_wiki": {
+                    "repo_summary": {
                         "type": "string",
                         "description": (
                             "A 2-4 sentence project overview (100-200 words) describing what "

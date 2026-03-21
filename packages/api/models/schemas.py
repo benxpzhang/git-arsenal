@@ -15,12 +15,12 @@ class SearchRequest(BaseModel):
         "Use short, specific names (not generic words). "
         "e.g. query='RAG platform' → ['dify','langchain','ragflow','llama-index','quivr','haystack'].",
     )
-    hypothetical_tree: str | None = Field(
+    repo_tree: str | None = Field(
         None,
-        description="A hypothetical repo directory tree (max-depth 4, 60-120 lines) for vector similarity "
+        description="A hypothetical repo directory tree (max-depth 4, 20-35 lines) for vector similarity "
         "matching against real repo trees. Use ├──/└──/│ connectors with domain-specific filenames.",
     )
-    hypothetical_wiki: str | None = Field(
+    repo_summary: str | None = Field(
         None,
         description="A 2-4 sentence project overview describing what the ideal repo does, "
         "its core features, and tech stack. Embedded and matched against real repo wiki summaries.",
@@ -45,7 +45,7 @@ class RepoResult(BaseModel):
 
 class SearchResponse(BaseModel):
     query: str
-    hypothetical_tree: str = ""
+    repo_tree: str = ""
     results: list[RepoResult]
 
 
