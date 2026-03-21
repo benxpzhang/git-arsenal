@@ -82,17 +82,23 @@ server.tool(
       "A hypothetical repo directory tree (20-35 lines, max-depth 4) using ├──/└──/│ connectors " +
       "with domain-specific filenames. This is embedded and compared against real repo trees via vector similarity."
     ),
+    hypothetical_wiki: z.string().optional().describe(
+      "A 2-4 sentence project overview (100-200 chars) describing what the ideal repo does, " +
+      "its core features, and tech stack — as if writing the first paragraph of its wiki page. " +
+      "This is embedded and compared against real repo wiki summaries via vector similarity."
+    ),
     top_k: z.number().min(1).max(50).default(10).describe("Number of results to return"),
     language: z.string().optional().describe("Filter by programming language (e.g. 'Python', 'TypeScript')"),
     min_stars: z.number().optional().describe("Minimum star count filter"),
   },
-  async ({ query, keywords, hypothetical_tree, top_k, language, min_stars }) => {
+  async ({ query, keywords, hypothetical_tree, hypothetical_wiki, top_k, language, min_stars }) => {
     await ensureToken();
     try {
       const data = await apiPost("/api/search", {
         query,
         keywords: keywords || null,
         hypothetical_tree: hypothetical_tree || null,
+        hypothetical_wiki: hypothetical_wiki || null,
         top_k: top_k || 10,
         language: language || null,
         min_stars: min_stars || null,

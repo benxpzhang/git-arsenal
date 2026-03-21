@@ -33,13 +33,13 @@ async def search(
 
     keywords = req.keywords or []
     hypo_tree = req.hypothetical_tree or req.query
+    hypo_wiki = req.hypothetical_wiki or req.query
 
     if not keywords:
         print(f"  Warning: no keywords provided for query: {req.query[:60]}")
 
     print(f"  Keywords({len(keywords)}): {keywords}")
 
-    # Parallel: embed tree + embed query
     async def embed_tree():
         try:
             return await asyncio.to_thread(get_embedding, hypo_tree)
@@ -50,14 +50,14 @@ async def search(
             except EmbeddingError:
                 return None
 
-    async def embed_query():
+    async def embed_wiki():
         try:
-            return await asyncio.to_thread(get_embedding, req.query)
+            return await asyncio.to_thread(get_embedding, hypo_wiki)
         except EmbeddingError as e:
             print(f"  Wiki embed failed: {e}")
             return None
 
-    tree_vector, wiki_vector = await asyncio.gather(embed_tree(), embed_query())
+    tree_vector, wiki_vector = await asyncio.gather(embed_tree(), embed_wiki())
     t1 = time.time()
     print(f"  Embed: {t1 - t0:.2f}s")
 

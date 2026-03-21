@@ -20,6 +20,11 @@ class SearchRequest(BaseModel):
         description="A hypothetical repo directory tree (max-depth 4, 60-120 lines) for vector similarity "
         "matching against real repo trees. Use ├──/└──/│ connectors with domain-specific filenames.",
     )
+    hypothetical_wiki: str | None = Field(
+        None,
+        description="A 2-4 sentence project overview describing what the ideal repo does, "
+        "its core features, and tech stack. Embedded and matched against real repo wiki summaries.",
+    )
     top_k: int = Field(15, ge=1, le=50, description="Number of results to return")
     language: str | None = Field(None, description="Filter by programming language")
     min_stars: int | None = Field(None, ge=0, description="Filter by minimum star count")
