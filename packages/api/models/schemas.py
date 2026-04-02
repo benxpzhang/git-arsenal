@@ -40,10 +40,10 @@ class RepoResult(BaseModel):
     score: float = 0.0
     rrf_score: float = 0.0
     full_name: str
-    stars: int
-    language: str
-    description: str
-    html_url: str
+    stars: int = 0
+    language: str = ""
+    description: str = ""
+    html_url: str = ""
     tree_text: str = ""
     wiki_text: str = ""
 

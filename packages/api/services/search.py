@@ -53,13 +53,13 @@ def _hit_to_dict(hit) -> dict:
     return {
         "id": hit.id,
         "score": round(hit.score, 4) if hasattr(hit, 'score') else 0.0,
-        "full_name": hit.payload.get("full_name", ""),
-        "stars": hit.payload.get("stars", 0),
-        "language": hit.payload.get("language", ""),
-        "description": hit.payload.get("description", ""),
-        "html_url": hit.payload.get("html_url", ""),
-        "tree_text": hit.payload.get("tree_text", ""),
-        "wiki_text": hit.payload.get("wiki_text", ""),
+        "full_name": hit.payload.get("full_name") or "",
+        "stars": hit.payload.get("stars") or 0,
+        "language": hit.payload.get("language") or "",
+        "description": hit.payload.get("description") or "",
+        "html_url": hit.payload.get("html_url") or "",
+        "tree_text": hit.payload.get("tree_text") or "",
+        "wiki_text": hit.payload.get("wiki_text") or "",
     }
 
 

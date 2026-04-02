@@ -1,12 +1,13 @@
 """
 Galaxy visualization service — loads and serves 3D graph data.
 
-Data files expected in DATA_DIR (packages/api/data/):
-  - repos_meta.jsonl   -> lightweight repo metadata
-  - galaxy_edges.npz   -> pre-computed kNN edges
-  - positions_3d.npy   -> UMAP 3D coordinates (N, 3)
-  - cluster_tree.json  -> hierarchical cluster tree
-  - repo_leaf_labels.npy -> per-repo leaf cluster assignment
+Data layout (unified/):
+  - meta_index.jsonl          -> lightweight metadata with shard pointers
+  - starmap/positions_3d.npy  -> UMAP 3D coordinates (N, 3)
+  - starmap/galaxy_edges.npz  -> pre-computed kNN edges
+  - starmap/cluster_tree.json -> hierarchical cluster tree
+  - starmap/repo_leaf_labels.npy -> per-repo leaf cluster assignment
+  - {YYYY}/{YYYY-MM}.jsonl    -> full shard data (on-demand detail)
 """
 import json
 import math
@@ -24,13 +25,11 @@ EDGE_DST: np.ndarray | None = None
 EDGE_SIM: np.ndarray | None = None
 CLUSTER_TREE: dict | None = None
 CLUSTER_NODES: list[dict] = []
-CLUSTER_NODE_MAP: dict[int, dict] = {}  # id -> node for O(1) lookup (supports non-sequential IDs)
+CLUSTER_NODE_MAP: dict[int, dict] = {}
 REPO_NAME_TO_IDX: dict[str, int] = {}
-META_FILE_PATH: Path | None = None
-REPO_OFFSETS: list[int] = []
-WIKI_FILE_PATH: Path | None = None
-WIKI_OFFSETS: list[int] = []
-HUB_INDICES: list[int] = []  # repos with >= 5 edges, used for random focus
+REPO_SHARD: list[str] = []       # shard relative path per repo
+REPO_SHARD_LINE: list[int] = []  # line number in shard per repo
+HUB_INDICES: list[int] = []
 
 # Language -> color mapping
 LANG_COLORS = {
@@ -62,26 +61,23 @@ DEFAULT_COLOR = "#6b7280"
 
 
 def load_galaxy_data():
-    """Load all data files at startup."""
+    """Load all data files at startup from the unified/ directory."""
     global REPOS, POSITIONS, LEAF_LABELS, EDGE_SRC, EDGE_DST, EDGE_SIM
-    global CLUSTER_TREE, CLUSTER_NODES, CLUSTER_NODE_MAP, REPO_NAME_TO_IDX, META_FILE_PATH, REPO_OFFSETS
+    global CLUSTER_TREE, CLUSTER_NODES, CLUSTER_NODE_MAP, REPO_NAME_TO_IDX
+    global REPO_SHARD, REPO_SHARD_LINE
 
-    meta_path = DATA_DIR / "repos_meta.jsonl"
-    META_FILE_PATH = meta_path
+    meta_path = DATA_DIR / "meta_index.jsonl"
+    starmap = DATA_DIR / "starmap"
 
-    # Load lightweight metadata (line-by-line JSONL with byte offsets for on-demand detail)
     REPOS = []
-    REPO_OFFSETS = []
+    REPO_SHARD = []
+    REPO_SHARD_LINE = []
     REPO_NAME_TO_IDX = {}
-    with open(meta_path, "r") as f:
-        while True:
-            offset = f.tell()
-            line = f.readline()
-            if not line:
-                break
+
+    with open(meta_path, "r", encoding="utf-8") as f:
+        for line in f:
             try:
                 repo = json.loads(line)
-                REPO_OFFSETS.append(offset)
                 REPO_NAME_TO_IDX[repo["full_name"].lower()] = len(REPOS)
                 REPOS.append({
                     "full_name": repo["full_name"],
@@ -89,59 +85,34 @@ def load_galaxy_data():
                     "description": repo.get("description", ""),
                     "language": repo.get("language", ""),
                     "html_url": repo.get("html_url", ""),
+                    "created_month": repo.get("created_month", ""),
                 })
+                REPO_SHARD.append(repo.get("shard", ""))
+                REPO_SHARD_LINE.append(repo.get("shard_line", -1))
             except Exception:
-                REPO_OFFSETS.append(offset)
                 REPOS.append({})
+                REPO_SHARD.append("")
+                REPO_SHARD_LINE.append(-1)
 
-    print(f"  Galaxy: {len(REPOS):,} repos loaded")
+    print(f"  Galaxy: {len(REPOS):,} repos loaded from meta_index")
 
-    # Wiki text: load snippets for hover + byte offsets for on-demand full read
-    global WIKI_FILE_PATH, WIKI_OFFSETS
-    wiki_path = DATA_DIR / "wiki_texts.jsonl"
-    wiki_count = 0
-    if wiki_path.exists():
-        WIKI_FILE_PATH = wiki_path
-        WIKI_OFFSETS = []
-        with open(wiki_path, "rb") as f:
-            idx = 0
-            while True:
-                offset = f.tell()
-                line = f.readline()
-                if not line:
-                    break
-                WIKI_OFFSETS.append(offset)
-                if idx < len(REPOS):
-                    try:
-                        obj = json.loads(line)
-                        wt = (obj.get("wiki_text") or "").strip()
-                        if len(wt) >= 100:
-                            first_para = wt.split("\n\n")[0].split("\n")[0]
-                            REPOS[idx]["wiki_snippet"] = first_para[:200]
-                            wiki_count += 1
-                    except Exception:
-                        pass
-                idx += 1
-        print(f"  Galaxy: {wiki_count:,} wiki snippets loaded")
-
-    # Positions
-    pos_path = DATA_DIR / "positions_3d.npy"
+    # Positions (from starmap/)
+    pos_path = starmap / "positions_3d.npy"
     if pos_path.exists():
         POSITIONS = np.load(str(pos_path))
-        # Scale to reasonable range
         scale = 1000.0 / max(np.abs(POSITIONS).max(), 1.0)
         POSITIONS = (POSITIONS * scale).astype(np.float32)
         print(f"  Galaxy: positions loaded ({POSITIONS.shape})")
 
     # Leaf labels
-    labels_path = DATA_DIR / "repo_leaf_labels.npy"
+    labels_path = starmap / "repo_leaf_labels.npy"
     if labels_path.exists():
         LEAF_LABELS = np.load(str(labels_path))
         print(f"  Galaxy: leaf labels loaded ({LEAF_LABELS.shape})")
 
     # Edges
     global HUB_INDICES
-    edges_path = DATA_DIR / "galaxy_edges.npz"
+    edges_path = starmap / "galaxy_edges.npz"
     if edges_path.exists():
         edges = np.load(str(edges_path))
         EDGE_SRC = edges["src"]
@@ -149,7 +120,6 @@ def load_galaxy_data():
         EDGE_SIM = edges["sim"]
         print(f"  Galaxy: {len(EDGE_SRC):,} edges loaded")
 
-        # Pre-compute hub repos (>= 5 edges) for better random focus
         degree = np.zeros(len(REPOS), dtype=np.int32)
         np.add.at(degree, EDGE_SRC, 1)
         np.add.at(degree, EDGE_DST, 1)
@@ -157,7 +127,7 @@ def load_galaxy_data():
         print(f"  Galaxy: {len(HUB_INDICES):,} hub repos (degree >= 5)")
 
     # Cluster tree
-    tree_path = DATA_DIR / "cluster_tree.json"
+    tree_path = starmap / "cluster_tree.json"
     if tree_path.exists():
         with open(tree_path) as f:
             CLUSTER_TREE = json.load(f)
@@ -167,17 +137,22 @@ def load_galaxy_data():
 
 
 def _load_repo_detail(idx: int) -> dict:
-    """Load full record (with tree_text, readme) from disk on-demand."""
-    if idx < 0 or idx >= len(REPO_OFFSETS) or META_FILE_PATH is None:
+    """Load full record from shard on-demand via shard path + line number."""
+    if idx < 0 or idx >= len(REPO_SHARD):
         return {}
-    offset = REPO_OFFSETS[idx]
+    shard_rel = REPO_SHARD[idx]
+    shard_line = REPO_SHARD_LINE[idx]
+    if not shard_rel or shard_line < 0:
+        return {}
+    shard_path = DATA_DIR / shard_rel
     try:
-        with open(META_FILE_PATH, "r") as f:
-            f.seek(offset)
-            line = f.readline()
-            return json.loads(line)
+        with open(shard_path, "r", encoding="utf-8") as f:
+            for i, line in enumerate(f):
+                if i == shard_line:
+                    return json.loads(line)
     except Exception:
-        return {}
+        pass
+    return {}
 
 
 def _make_node(idx: int, role: str = "cluster") -> dict:
@@ -462,17 +437,9 @@ def get_neighbors(idx: int, limit: int = 15) -> dict:
 
 
 def _load_wiki_text(idx: int) -> str:
-    """Load full wiki text from wiki_texts.jsonl on-demand."""
-    if WIKI_FILE_PATH is None or idx < 0 or idx >= len(WIKI_OFFSETS):
-        return ""
-    try:
-        with open(WIKI_FILE_PATH, "rb") as f:
-            f.seek(WIKI_OFFSETS[idx])
-            line = f.readline()
-            obj = json.loads(line)
-            return (obj.get("wiki_text") or "").strip()
-    except Exception:
-        return ""
+    """Load full wiki text from shard's deepwiki_text field on-demand."""
+    detail = _load_repo_detail(idx)
+    return (detail.get("deepwiki_text") or "").strip()
 
 
 def get_node_detail(idx: int) -> dict:
