@@ -73,13 +73,14 @@ export function GalaxyPanel() {
   const hiddenLangsRef = useRef<Set<string>>(new Set());
   const hoverIdRef = useRef<number | null>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
+  const [showPopover, setShowPopover] = useState(false);
   const [focusedWikiText, setFocusedWikiText] = useState<string>("");
 
   useEffect(() => { hiddenLangsRef.current = hiddenLangs; }, [hiddenLangs]);
 
   useEffect(() => {
     focusedIdRef.current = galaxyFocusedNodeId;
-    if (galaxyFocusedNodeId === null) return;
+    if (galaxyFocusedNodeId === null) { setShowPopover(false); return; }
 
     // If node is already in current graph, just fly to it
     const gd = graphRef.current?.graphData();
@@ -109,13 +110,13 @@ export function GalaxyPanel() {
   }, [galaxyFocusedNodeId]);
 
   useEffect(() => {
-    if (galaxyFocusedNodeId === null) { setFocusedWikiText(""); return; }
+    if (!showPopover || galaxyFocusedNodeId === null) { setFocusedWikiText(""); return; }
     let cancelled = false;
     getGalaxyDetail(galaxyFocusedNodeId).then((d) => {
       if (!cancelled) setFocusedWikiText(d?.wiki_text || "");
     }).catch(() => { if (!cancelled) setFocusedWikiText(""); });
     return () => { cancelled = true; };
-  }, [galaxyFocusedNodeId]);
+  }, [showPopover, galaxyFocusedNodeId]);
 
   const langStats = useMemo(() => {
     if (!data) return [];
@@ -577,6 +578,7 @@ export function GalaxyPanel() {
 
           setGalaxyFocusedNodeId(node.id);
           focusedIdRef.current = node.id;
+          setShowPopover(true);
 
           // Pin the clicked node so force simulation won't push it away
           node.fx = node.x;
@@ -940,8 +942,8 @@ export function GalaxyPanel() {
         )}
       </div>
 
-      {/* Following Popover for focused node */}
-      {galaxyFocusedNodeId !== null && data && (
+      {/* Following Popover for focused node — only shown on explicit click */}
+      {showPopover && galaxyFocusedNodeId !== null && data && (
           (() => {
             const gd = graphRef.current?.graphData();
             const focusedNode = gd?.nodes?.find((n: any) => n.id === galaxyFocusedNodeId)
@@ -1003,10 +1005,10 @@ export function GalaxyPanel() {
                       </a>
                       <button
                         onClick={() => {
-                          // Unpin the node
                           const gd = graphRef.current?.graphData();
                           const prev = gd?.nodes?.find((nd: any) => nd.id === galaxyFocusedNodeId);
                           if (prev) { prev.fx = undefined; prev.fy = undefined; }
+                          setShowPopover(false);
                           setGalaxyFocusedNodeId(null);
                           focusedIdRef.current = null;
                           refreshNodeVisuals();

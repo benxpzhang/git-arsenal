@@ -13,6 +13,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import { RepoCards, parseRepoCards, type RepoCardData } from "./repo-cards";
 
 const EXAMPLE_QUERIES = [
   "一个能把 PDF、网页接入 LLM 的 RAG 知识库平台，支持多轮对话",
@@ -275,28 +276,56 @@ export function ChatPanel() {
             {messages
               .filter((msg) => msg.role === "user" || msg.role === "assistant")
               .map((msg) => {
-                const text = getMessageText(msg);
-                if (!text) return null;
+                if (msg.role === "user") {
+                  const text = getMessageText(msg);
+                  if (!text) return null;
+                  return (
+                    <div key={msg.id} className="flex justify-end">
+                      <div className="max-w-[85%] rounded-2xl px-5 py-4 text-[15px] leading-relaxed overflow-hidden bg-primary text-primary-foreground">
+                        <p>{text}</p>
+                      </div>
+                    </div>
+                  );
+                }
+
+                const parts = msg.parts ?? [];
+                const textParts: string[] = [];
+                const cardSets: RepoCardData[][] = [];
+                let hasToolPending = false;
+
+                for (const part of parts) {
+                  const p = part as any;
+                  if (p.type === "text") {
+                    textParts.push(p.text ?? "");
+                  } else if (
+                    p.type === "dynamic-tool" &&
+                    (p.toolName === "search_repos" || p.toolName === "get_repo_detail")
+                  ) {
+                    if (p.state === "output-available" && p.output) {
+                      const cards = parseRepoCards(p.output);
+                      if (cards) cardSets.push(cards);
+                    } else if (p.state !== "output-available") {
+                      hasToolPending = true;
+                    }
+                  }
+                }
+
+                const text = textParts.join("");
+                if (!text && cardSets.length === 0 && !hasToolPending) return null;
 
                 return (
-                  <div
-                    key={msg.id}
-                    className={cn(
-                      "flex",
-                      msg.role === "user" ? "justify-end" : "justify-start",
-                    )}
-                  >
-                    <div
-                      className={cn(
-                        "max-w-[85%] rounded-2xl px-5 py-4 text-[15px] leading-relaxed overflow-hidden",
-                        msg.role === "user"
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-card/50 border border-border/50 shadow-sm",
+                  <div key={msg.id} className="flex justify-start">
+                    <div className="max-w-[85%] rounded-2xl px-5 py-4 text-[15px] leading-relaxed overflow-hidden bg-card/50 border border-border/50 shadow-sm space-y-3">
+                      {hasToolPending && cardSets.length === 0 && (
+                        <div className="flex items-center gap-2 text-sm text-blue-400/70">
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Searching repositories...</span>
+                        </div>
                       )}
-                    >
-                      {msg.role === "user" ? (
-                        <p>{text}</p>
-                      ) : (
+                      {cardSets.map((cards, i) => (
+                        <RepoCards key={i} repos={cards} />
+                      ))}
+                      {text && (
                         <div className="prose prose-sm prose-invert max-w-none overflow-x-auto">
                           <ReactMarkdown
                             remarkPlugins={[remarkGfm]}

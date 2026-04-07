@@ -6,9 +6,12 @@ Features:
   - Automatic retry (EMBED_MAX_RETRIES) with exponential backoff
   - Clear error propagation (EmbeddingError) for caller to handle
 """
+import logging
 import time
 from openai import OpenAI
 from config import EMBED_API_KEY, EMBED_BASE_URL, EMBED_MODEL, EMBED_DIM, EMBED_TIMEOUT, EMBED_MAX_RETRIES
+
+log = logging.getLogger("arsenal.embed")
 
 _client: OpenAI | None = None
 
@@ -51,7 +54,7 @@ def get_embedding(text: str) -> list[float]:
             last_error = e
             if attempt < EMBED_MAX_RETRIES:
                 wait = 2 ** attempt
-                print(f"⚠️ Embedding attempt {attempt + 1} failed ({type(e).__name__}), retrying in {wait}s...")
+                log.warning("Embed attempt %d failed (%s), retry in %ds...", attempt + 1, type(e).__name__, wait)
                 time.sleep(wait)
 
     raise EmbeddingError(f"Embedding failed after {EMBED_MAX_RETRIES + 1} attempts: {last_error}")

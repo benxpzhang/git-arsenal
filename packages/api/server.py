@@ -3,10 +3,17 @@ Git Arsenal - Backend API Server
 
 Run: uvicorn server:app --host 0.0.0.0 --port 8003 --reload
 """
+import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from config import API_HOST, API_PORT, CORS_ORIGINS
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(name)s] %(levelname)s  %(message)s",
+    datefmt="%m-%d %H:%M:%S",
+)
 
 
 @asynccontextmanager

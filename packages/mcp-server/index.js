@@ -75,8 +75,8 @@ server.tool(
   {
     query: z.string().describe("Natural language description of the project you're looking for"),
     keywords: z.array(z.string()).optional().describe(
-      "5-10 real GitHub repo or org name fragments for keyword matching (lowercase, specific names). " +
-      "e.g. query='RAG platform' → ['dify','langchain','ragflow','llama-index','quivr','haystack']"
+      "3-5 real GitHub repo or org name fragments for keyword matching (lowercase, specific names). " +
+      "e.g. query='RAG platform' → ['dify','langchain','ragflow','quivr','haystack']"
     ),
     repo_tree: z.string().optional().describe(
       "A hypothetical repo directory tree (20-35 lines, max-depth 4) using ├──/└──/│ connectors " +
@@ -108,22 +108,32 @@ server.tool(
         return { content: [{ type: "text", text: "No repositories found matching your query." }] };
       }
 
-      const text = data.results
-        .map((r, i) => {
-          const parts = [
-            `## ${i + 1}. ${r.full_name} ⭐ ${r.stars}`,
-            r.description ? `> ${r.description}` : "",
-            `- Language: ${r.language || "N/A"}`,
-            `- URL: ${r.html_url}`,
-            `- Match Score: ${(r.score * 100).toFixed(1)}%`,
-          ];
-          if (r.tree_text) {
-            parts.push("", "```", r.tree_text, "```");
-          }
-          return parts.filter(Boolean).join("\n");
-        })
-        .join("\n\n---\n\n");
+      const cards = data.results.map((r) => ({
+        full_name: r.full_name,
+        stars: r.stars || 0,
+        language: r.language || "",
+        description: r.description || "",
+        html_url: r.html_url || "",
+      }));
 
+      const llmText = data.results
+        .map((r, i) => {
+          const lines = [
+            `${i + 1}. ${r.full_name} · ⭐${r.stars} · ${r.language || "N/A"}`,
+          ];
+          if (r.description) lines.push(`   ${r.description}`);
+          if (r.tree_text) {
+            const truncated = r.tree_text.split("\n").slice(0, 20).join("\n");
+            lines.push(`   Tree:\n${truncated}`);
+          }
+          if (r.wiki_text) {
+            lines.push(`   Wiki: ${r.wiki_text.slice(0, 150)}`);
+          }
+          return lines.join("\n");
+        })
+        .join("\n\n");
+
+      const text = `<!--REPO_CARDS:${JSON.stringify(cards)}-->\n\n${llmText}`;
       return { content: [{ type: "text", text }] };
     } catch (e) {
       return {
@@ -137,30 +147,42 @@ server.tool(
 // Tool: get_repo_detail
 server.tool(
   "get_repo_detail",
-  "Get detailed information about a specific GitHub repository by owner/name.",
+  "Get detailed information about a specific GitHub repository. You can provide either full owner/name or just the project name for fuzzy matching.",
   {
-    owner: z.string().describe("Repository owner (e.g. 'facebook')"),
-    name: z.string().describe("Repository name (e.g. 'react')"),
+    name: z.string().describe(
+      "Repository name — either full 'owner/name' (e.g. 'facebook/react') or just the project name (e.g. 'react', 'langchain', 'openclaw')"
+    ),
   },
-  async ({ owner, name }) => {
+  async ({ name }) => {
     await ensureToken();
     try {
-      const data = await apiGet(`/api/repo/${owner}/${name}`);
+      const isFullName = name.includes("/");
+      const endpoint = isFullName
+        ? `/api/repo/${name}`
+        : `/api/repo-search/${encodeURIComponent(name)}`;
+      const data = await apiGet(endpoint);
 
-      const parts = [
-        `# ${data.full_name || `${owner}/${name}`}`,
-        data.description ? `> ${data.description}` : "",
-        "",
-        `- Stars: ${data.stars || 0}`,
-        `- Language: ${data.language || "N/A"}`,
-        `- URL: ${data.html_url || `https://github.com/${owner}/${name}`}`,
+      const card = {
+        full_name: data.full_name || name,
+        stars: data.stars || 0,
+        language: data.language || "",
+        description: data.description || "",
+        html_url: data.html_url || `https://github.com/${data.full_name || name}`,
+      };
+
+      const llmParts = [
+        `${data.full_name || name} · ⭐${data.stars || 0} · ${data.language || "N/A"}`,
+        data.description || "",
       ];
-
       if (data.tree_text) {
-        parts.push("", "## Directory Structure", "```", data.tree_text, "```");
+        llmParts.push(`Tree:\n${data.tree_text.split("\n").slice(0, 25).join("\n")}`);
+      }
+      if (data.wiki_text) {
+        llmParts.push(`Wiki: ${data.wiki_text.slice(0, 300)}`);
       }
 
-      return { content: [{ type: "text", text: parts.filter(Boolean).join("\n") }] };
+      const text = `<!--REPO_CARDS:${JSON.stringify([card])}-->\n\n${llmParts.join("\n")}`;
+      return { content: [{ type: "text", text }] };
     } catch (e) {
       return {
         content: [{ type: "text", text: `Sorry, could not fetch repo details: ${e.message}` }],
